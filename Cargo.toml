@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "arch",
+    "basic",
+    "config",
+    "corelib",
+    "gproxy",
+    "interface",
+    "ksync",
+    "malloc",
+    "rref",
+    "task_meta",
+]
+
+
+resolver = "2"
