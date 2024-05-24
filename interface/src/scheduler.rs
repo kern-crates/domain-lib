@@ -22,6 +22,8 @@ pub trait SchedulerDomain: Basic + DowncastSync {
     /// Yield the current task
     fn yield_now(&self) -> AlienResult<()>;
     fn exit_now(&self) -> AlienResult<()>;
+    /// remove task from scheduler, release resources
+    fn remove_task(&self, tid: usize) -> AlienResult<()>;
     fn dump_meta_data(&self, data: &mut SchedulerDataContainer) -> AlienResult<()>;
 }
 
