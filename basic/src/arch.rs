@@ -1,5 +1,9 @@
-use core::{cell::UnsafeCell, ops::Deref};
+use core::{
+    cell::UnsafeCell,
+    ops::{Deref, DerefMut},
+};
 
+#[inline(always)]
 pub fn hart_id() -> usize {
     arch::hart_id()
 }
@@ -12,6 +16,10 @@ impl<T> CpuLocal<T> {
     pub const fn new(value: T) -> Self {
         Self(UnsafeCell::new(value))
     }
+
+    pub fn as_mut(&self) -> &mut T {
+        unsafe { &mut *self.0.get() }
+    }
 }
 
 impl<T> Deref for CpuLocal<T> {
@@ -19,5 +27,11 @@ impl<T> Deref for CpuLocal<T> {
 
     fn deref(&self) -> &T {
         unsafe { &*self.0.get() }
+    }
+}
+
+impl<T> DerefMut for CpuLocal<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.0.get() }
     }
 }

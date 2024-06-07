@@ -1,12 +1,7 @@
 use arch::ExtSstatus;
-use corelib::switch_task;
 use memory_addr::{PhysAddr, VirtAddr};
 use riscv::register::sstatus::SPP;
 pub use task_meta::TaskContext;
-
-pub fn switch(now: *mut TaskContext, next: *const TaskContext, next_tid: usize) {
-    switch_task(now, next, next_tid)
-}
 
 pub trait TaskContextExt {
     fn new_user(k_sp: VirtAddr) -> Self;
@@ -103,33 +98,5 @@ impl TrapFrame {
         [
             self.x[17], self.x[10], self.x[11], self.x[12], self.x[13], self.x[14], self.x[15],
         ]
-    }
-}
-
-#[derive(Debug)]
-pub struct KStack {
-    top: VirtAddr,
-    tid: usize,
-    pages: usize,
-}
-
-impl KStack {
-    pub fn new(tid: usize, pages: usize) -> Self {
-        let top = corelib::map_kstack_for_task(tid, pages).expect("map kstack failed");
-        Self {
-            top: VirtAddr::from(top),
-            tid,
-            pages,
-        }
-    }
-
-    pub fn top(&self) -> VirtAddr {
-        self.top
-    }
-}
-
-impl Drop for KStack {
-    fn drop(&mut self) {
-        corelib::unmapped_kstack_for_task(self.tid, self.pages).expect("unmap kstack failed");
     }
 }

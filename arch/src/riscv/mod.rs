@@ -6,6 +6,7 @@ pub use regs::*;
 use riscv::register::satp;
 
 /// 获取当前的 hart id
+#[inline(always)]
 pub fn hart_id() -> usize {
     let mut id: usize;
     unsafe {

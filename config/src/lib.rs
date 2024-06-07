@@ -24,7 +24,7 @@ pub const STACK_SIZE: usize = 1024 * 64;
 pub const STACK_SIZE_BITS: usize = 16;
 
 /// 可配置的启动cpu数量
-pub const CPU_NUM: usize = 1;
+pub const CPU_NUM: usize = 4;
 
 const HEAP_SIZE: usize = 0x26_00000;
 pub const KERNEL_HEAP_SIZE: usize = HEAP_SIZE;
@@ -33,6 +33,7 @@ pub const TRAMPOLINE: usize = usize::MAX - 2 * FRAME_SIZE + 1;
 
 pub const TRAP_CONTEXT_BASE: usize = TRAMPOLINE - FRAME_SIZE;
 pub const USER_KERNEL_STACK_SIZE: usize = FRAME_SIZE * 10;
+pub const KTHREAD_STACK_SIZE: usize = FRAME_SIZE * 2;
 /// 线程数量大小限制
 pub const MAX_THREAD_NUM: usize = 65536;
 /// 描述符数量大小限制

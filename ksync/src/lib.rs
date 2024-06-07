@@ -3,13 +3,13 @@ use core::cell::{RefCell, RefMut};
 
 use arch::{hart_id, interrupt_disable, interrupt_enable, is_interrupt_enable};
 use config::CPU_NUM;
-use kernel_sync::{ticket::TicketMutexGuard, LockAction};
+use kernel_sync::{EmptyLockAction, LockAction, TicketMutexGuard};
 
-pub type SpinMutex<T> = kernel_sync::spin::SpinMutex<T, KernelLockAction>;
-pub type TicketMutex<T> = kernel_sync::ticket::TicketMutex<T, KernelLockAction>;
+pub type SpinMutex<T> = kernel_sync::spin::SpinMutex<T, EmptyLockAction>;
+pub type TicketMutex<T> = kernel_sync::ticket::TicketMutex<T, EmptyLockAction>;
 pub type RwLock<T> = kernel_sync::RwLock<T>;
 pub type Mutex<T> = TicketMutex<T>;
-pub type MutexGuard<'a, T> = TicketMutexGuard<'a, T, KernelLockAction>;
+pub type MutexGuard<'a, T> = TicketMutexGuard<'a, T>;
 
 #[derive(Debug, Default, Clone, Copy)]
 #[repr(align(64))]

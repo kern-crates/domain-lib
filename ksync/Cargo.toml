@@ -9,3 +9,4 @@ edition = "2021"
 config = { path = "../config" }
 arch = { path = "../arch" }
 kernel-sync = { git = "https://github.com/os-module/kernel-sync.git" }
+spin = "0"

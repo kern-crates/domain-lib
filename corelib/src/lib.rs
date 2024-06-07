@@ -5,7 +5,8 @@ extern crate alloc;
 pub use core_impl::*;
 use interface::{DomainType, DomainTypeRaw};
 use pconst::LinuxErrno;
-use task_meta::TaskContext;
+use spin::Once;
+use task_meta::{OperationResult, TaskOperation};
 
 pub type AlienError = LinuxErrno;
 pub type AlienResult<T> = Result<T, LinuxErrno>;
@@ -50,7 +51,6 @@ pub trait CoreFunction: Send + Sync {
     /// This func will be deleted
     fn blk_crash_trick(&self) -> bool;
     fn sys_get_domain(&self, name: &str) -> Option<DomainType>;
-    fn switch_task(&self, now: *mut TaskContext, next: *const TaskContext, next_tid: usize);
     fn sys_create_domain(&self, identifier: &str) -> Option<DomainType>;
     /// Register a new domain with the given name and type
     fn sys_register_domain(&self, ident: &str, ty: DomainTypeRaw, data: &[u8]) -> AlienResult<()>;
@@ -62,9 +62,8 @@ pub trait CoreFunction: Send + Sync {
         ty: DomainTypeRaw,
     ) -> AlienResult<()>;
     fn sys_reload_domain(&self, domain_name: &str) -> AlienResult<()>;
-    fn map_kstack_for_task(&self, task_id: usize, pages: usize) -> AlienResult<usize>;
-    fn unmapped_kstack_for_task(&self, task_id: usize, pages: usize) -> AlienResult<()>;
     fn vaddr_to_paddr_in_kernel(&self, vaddr: usize) -> AlienResult<usize>;
+    fn task_op(&self, op: TaskOperation) -> AlienResult<OperationResult>;
 }
 
 #[cfg(feature = "core_impl")]
@@ -73,9 +72,9 @@ mod core_impl {
 
     use interface::{DomainType, DomainTypeRaw};
     use spin::Once;
-    use task_meta::TaskContext;
+    use task_meta::{TaskMeta, TaskOperation};
 
-    use super::AlienResult;
+    use super::{AlienResult, OnceGet};
     use crate::CoreFunction;
 
     static CORE_FUNC: Once<Box<dyn CoreFunction>> = Once::new();
@@ -84,8 +83,6 @@ mod core_impl {
         fn sbss();
         fn ebss();
     }
-
-    /// 清空.bss段
     fn clear_bss() {
         unsafe {
             core::slice::from_raw_parts_mut(
@@ -102,84 +99,64 @@ mod core_impl {
     }
 
     pub fn alloc_raw_pages(n: usize, domain_id: u64) -> *mut u8 {
-        unsafe { CORE_FUNC.get_unchecked().sys_alloc_pages(domain_id, n) }
+        CORE_FUNC.get_must().sys_alloc_pages(domain_id, n)
     }
 
     pub fn free_raw_pages(p: *mut u8, n: usize, domain_id: u64) {
-        unsafe {
-            CORE_FUNC.get_unchecked().sys_free_pages(domain_id, p, n);
-        }
+        CORE_FUNC.get_must().sys_free_pages(domain_id, p, n);
     }
 
     pub fn write_console(s: &str) {
-        unsafe {
-            CORE_FUNC.get_unchecked().sys_write_console(s);
-        }
+        CORE_FUNC.get_must().sys_write_console(s);
     }
 
     pub fn backtrace(domain_id: u64) {
-        unsafe {
-            CORE_FUNC.get_unchecked().sys_backtrace(domain_id);
-        }
+        CORE_FUNC.get_must().sys_backtrace(domain_id);
     }
 
     pub fn trampoline_addr() -> usize {
         static TRAMPOLINE_ADDR: Once<usize> = Once::new();
-        unsafe {
-            TRAMPOLINE_ADDR.call_once(|| CORE_FUNC.get_unchecked().sys_trampoline_addr());
-            *TRAMPOLINE_ADDR.get_unchecked()
-        }
+
+        TRAMPOLINE_ADDR.call_once(|| CORE_FUNC.get_must().sys_trampoline_addr());
+        *TRAMPOLINE_ADDR.get_must()
     }
 
     pub fn kernel_satp() -> usize {
         static SATP: Once<usize> = Once::new();
-        unsafe {
-            SATP.call_once(|| CORE_FUNC.get_unchecked().sys_kernel_satp());
-            *SATP.get_unchecked()
-        }
+
+        SATP.call_once(|| CORE_FUNC.get_must().sys_kernel_satp());
+        *SATP.get_must()
     }
 
     pub fn trap_from_user() -> usize {
         static TRAP_FROM_USER: Once<usize> = Once::new();
-        unsafe {
-            TRAP_FROM_USER.call_once(|| CORE_FUNC.get_unchecked().sys_trap_from_user());
-            *TRAP_FROM_USER.get_unchecked()
-        }
+
+        TRAP_FROM_USER.call_once(|| CORE_FUNC.get_must().sys_trap_from_user());
+        *TRAP_FROM_USER.get_must()
     }
 
     pub fn trap_to_user() -> usize {
         static TRAP_TO_USER: Once<usize> = Once::new();
-        unsafe {
-            TRAP_TO_USER.call_once(|| CORE_FUNC.get_unchecked().sys_trap_to_user());
-            *TRAP_TO_USER.get_unchecked()
-        }
+
+        TRAP_TO_USER.call_once(|| CORE_FUNC.get_must().sys_trap_to_user());
+        *TRAP_TO_USER.get_must()
     }
 
     // todo!(delete)
     pub fn blk_crash_trick() -> bool {
-        unsafe { CORE_FUNC.get_unchecked().blk_crash_trick() }
+        CORE_FUNC.get_must().blk_crash_trick()
     }
 
     pub fn get_domain(name: &str) -> Option<DomainType> {
-        unsafe { CORE_FUNC.get_unchecked().sys_get_domain(name) }
+        CORE_FUNC.get_must().sys_get_domain(name)
     }
 
     pub fn create_domain(identifier: &str) -> Option<DomainType> {
-        unsafe { CORE_FUNC.get_unchecked().sys_create_domain(identifier) }
-    }
-
-    pub fn switch_task(now: *mut TaskContext, next: *const TaskContext, next_tid: usize) {
-        unsafe {
-            CORE_FUNC.get_unchecked().switch_task(now, next, next_tid);
-        }
+        CORE_FUNC.get_must().sys_create_domain(identifier)
     }
 
     pub fn register_domain(ident: &str, ty: DomainTypeRaw, data: &[u8]) -> AlienResult<()> {
-        unsafe {
-            CORE_FUNC
-                .get_unchecked()
-                .sys_register_domain(ident, ty, data)
-        }
+        CORE_FUNC.get_must().sys_register_domain(ident, ty, data)
     }
 
     pub fn update_domain(
@@ -187,34 +164,71 @@ mod core_impl {
         new_domain_name: &str,
         ty: DomainTypeRaw,
     ) -> AlienResult<()> {
-        unsafe {
-            CORE_FUNC
-                .get_unchecked()
-                .sys_update_domain(old_domain_name, new_domain_name, ty)
-        }
+        CORE_FUNC
+            .get_must()
+            .sys_update_domain(old_domain_name, new_domain_name, ty)
     }
 
     pub fn reload_domain(domain_name: &str) -> AlienResult<()> {
-        unsafe { CORE_FUNC.get_unchecked().sys_reload_domain(domain_name) }
+        CORE_FUNC.get_must().sys_reload_domain(domain_name)
     }
-
-    pub fn map_kstack_for_task(task_id: usize, pages: usize) -> AlienResult<usize> {
-        unsafe {
-            CORE_FUNC
-                .get_unchecked()
-                .map_kstack_for_task(task_id, pages)
-        }
-    }
-
-    pub fn unmapped_kstack_for_task(task_id: usize, pages: usize) -> AlienResult<()> {
-        unsafe {
-            CORE_FUNC
-                .get_unchecked()
-                .unmapped_kstack_for_task(task_id, pages)
-        }
-    }
-
     pub fn vaddr_to_paddr_in_kernel(vaddr: usize) -> AlienResult<usize> {
-        unsafe { CORE_FUNC.get_unchecked().vaddr_to_paddr_in_kernel(vaddr) }
+        CORE_FUNC.get_must().vaddr_to_paddr_in_kernel(vaddr)
     }
+
+    pub fn current_tid() -> AlienResult<Option<usize>> {
+        CORE_FUNC
+            .get_must()
+            .task_op(TaskOperation::Current)
+            .map(|res| res.current_tid())
+    }
+    /// return kstack top
+    pub fn add_one_task(task_meta: TaskMeta) -> AlienResult<usize> {
+        CORE_FUNC
+            .get_must()
+            .task_op(TaskOperation::Create(task_meta))
+            .map(|res| res.kstack_top())
+    }
+    /// Set current task to wait and switch to next task
+    pub fn wait_now() -> AlienResult<()> {
+        CORE_FUNC.get_must().task_op(TaskOperation::Wait)?;
+        Ok(())
+    }
+    /// Wake up the task with tid
+    pub fn wake_up_wait_task(tid: usize) -> AlienResult<()> {
+        CORE_FUNC.get_must().task_op(TaskOperation::Wakeup(tid))?;
+        Ok(())
+    }
+    /// Yield the current task
+    pub fn yield_now() -> AlienResult<()> {
+        CORE_FUNC.get_must().task_op(TaskOperation::Yield)?;
+        Ok(())
+    }
+    pub fn exit_now() -> AlienResult<()> {
+        CORE_FUNC.get_must().task_op(TaskOperation::Exit)?;
+        Ok(())
+    }
+    /// remove task from scheduler, release resources
+    pub fn remove_task(tid: usize) -> AlienResult<()> {
+        CORE_FUNC.get_must().task_op(TaskOperation::Remove(tid))?;
+        Ok(())
+    }
+
+    /// Check if the task is exit over
+    pub fn is_task_exit(tid: usize) -> AlienResult<bool> {
+        CORE_FUNC
+            .get_must()
+            .task_op(TaskOperation::ExitOver(tid))
+            .map(|res| res.is_exit_over())
+    }
+}
+
+impl<T> OnceGet<T> for Once<T> {
+    fn get_must(&self) -> &T {
+        unsafe { self.get_unchecked() }
+    }
+}
+
+pub trait OnceGet<T> {
+    fn get_must(&self) -> &T;
 }

@@ -20,7 +20,10 @@ pub fn impl_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream {
                                         if !self.is_active() {
                                             return Err(AlienError::DOMAINCRASH);
                                         }
-                                        self.domain.read().handle_irq()
+                                        let idx = self.srcu_lock.read_lock();
+                                        let res = self.domain.get().handle_irq();
+                                        self.srcu_lock.read_unlock(idx);
+                                        res
                                     }
                                 }
                             );
@@ -30,7 +33,10 @@ pub fn impl_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream {
                             let basic = quote!(
                                 impl Basic for #ident{
                                     fn is_active(&self)->bool{
-                                        self.domain.read().is_active()
+                                        let idx = self.srcu_lock.read_lock();
+                                        let res = self.domain.get().is_active();
+                                        self.srcu_lock.read_unlock(idx);
+                                        res
                                     }
                                 }
                             );

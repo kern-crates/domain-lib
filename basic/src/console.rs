@@ -3,7 +3,13 @@ use core::fmt::{Arguments, Write};
 macro_rules! print {
     ($($arg:tt)*) => {
         let domain_id = rref::domain_id();
-        $crate::console::__print(format_args!("[Domain:{}] {}", domain_id, format_args!($($arg)*)))
+        let mut id: usize;
+        unsafe {
+            core::arch::asm!(
+            "mv {},tp", out(reg)id,
+            );
+        }
+        $crate::console::__print(format_args!("[{}][Domain:{}] {}", id,domain_id, format_args!($($arg)*)))
     };
 }
 

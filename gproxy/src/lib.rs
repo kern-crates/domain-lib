@@ -117,20 +117,25 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                 #[derive(Debug)]
                 pub struct #ident{
                     id:AtomicU64,
-                    domain: RwLock<alloc::boxed::Box<dyn #trait_name>>,
-                    old_domain: Mutex<alloc::vec::Vec<alloc::boxed::Box<dyn #trait_name>>>,
+                    domain: RcuData<Box<dyn #trait_name>>,
+                    srcu_lock: SRcuLock,
+                    old_domain: Mutex<Vec<Box<Box<dyn #trait_name>>>>,
                     domain_loader: Mutex<DomainLoader>,
                     #resource_field
                 }
                 impl #ident{
-                    pub fn new(id:u64, domain: alloc::boxed::Box<dyn #trait_name>,domain_loader: DomainLoader)->Self{
+                    pub fn new(id:u64, domain: Box<dyn #trait_name>,domain_loader: DomainLoader)->Self{
                         Self{
                             id: AtomicU64::new(id),
-                            domain: RwLock::new(domain),
-                            old_domain: Mutex::new(alloc::vec::Vec::new()),
+                            domain: RcuData::new(Box::new(domain)),
+                            srcu_lock: SRcuLock::new(),
+                            old_domain: Mutex::new(Vec::new()),
                             domain_loader: Mutex::new(domain_loader),
                             #resource_init
                         }
+                    }
+                    pub fn domain_id(&self)->u64{
+                        self.id.load(core::sync::atomic::Ordering::Relaxed)
                     }
                 }
                 #supertrait_code
@@ -253,7 +258,7 @@ fn impl_func_code(
                 #(#attr)*
                 #sig{
                     #resource_init
-                    self.domain.read().init(#(#input_argv),*)
+                    self.domain.get().init(#(#input_argv),*)
                 }
             );
             (token, quote!())
@@ -317,10 +322,13 @@ fn gen_trampoline(
     if has_recover {
         let call = quote! (
             {
-                let guard = self.domain.read();
-                unsafe {
+                let idx = self.srcu_lock.read_lock();
+                let guard = self.domain.get();
+                let res = unsafe {
                     #trampoline_ident(&guard, #(#input_argv),*)
-                }
+                };
+                self.srcu_lock.read_unlock(idx);
+                res
             }
         );
         let asm_code = quote!(
@@ -411,7 +419,10 @@ fn gen_trampoline(
     } else {
         (
             quote! (
-                 self.domain.read().#func_name(#(#input_argv),*)
+                let idx = self.srcu_lock.read_lock();
+                let res = self.domain.get().#func_name(#(#input_argv),*);
+                self.srcu_lock.read_unlock(idx);
+                res
             ),
             quote!(),
         )

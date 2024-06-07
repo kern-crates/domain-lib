@@ -1,5 +1,7 @@
 #![no_std]
-#![forbid(unsafe_code)]
+
+mod continuation;
+
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
 pub struct TaskContext {
@@ -12,7 +14,7 @@ pub struct TaskContext {
 }
 
 impl TaskContext {
-    pub fn new(ra: usize, sp: usize) -> Self {
+    pub const fn new(ra: usize, sp: usize) -> Self {
         Self { ra, sp, s: [0; 12] }
     }
 
@@ -29,35 +31,79 @@ impl TaskContext {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct TaskMeta {
-    pub context: TaskContext,
-    // other fields
+pub struct TaskBasicInfo {
     pub tid: usize,
-    pub statue: TaskStatus,
+    pub status: TaskStatus,
+    pub context: TaskContext,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TaskMeta {
+    pub task_basic_info: TaskBasicInfo,
+    pub scheduling_info: TaskSchedulingInfo,
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct TaskSchedulingInfo {
+    pub tid: usize,
+    pub priority: usize,
+    // other information
+    pub cpus_allowed: usize,
+}
+
+impl TaskSchedulingInfo {
+    pub const fn new(tid: usize, priority: usize, cpu_allowed: usize) -> Self {
+        Self {
+            tid,
+            priority,
+            cpus_allowed: cpu_allowed,
+        }
+    }
 }
 
 impl TaskMeta {
-    pub fn new(tid: usize, context: TaskContext) -> Self {
+    /// Create a new TaskMeta
+    pub const fn new(basic_info: TaskBasicInfo, scheduling_info: TaskSchedulingInfo) -> Self {
         Self {
-            tid,
-            context,
-            statue: TaskStatus::Ready,
+            task_basic_info: basic_info,
+            scheduling_info,
         }
     }
+    pub fn basic_info(&self) -> TaskBasicInfo {
+        self.task_basic_info
+    }
+    pub fn scheduling_info(&self) -> TaskSchedulingInfo {
+        self.scheduling_info
+    }
+}
+
+impl TaskBasicInfo {
+    pub const fn new(tid: usize, context: TaskContext) -> Self {
+        Self {
+            tid,
+            status: TaskStatus::Ready,
+            context,
+        }
+    }
+
     pub fn tid(&self) -> usize {
         self.tid
     }
-    pub fn get_context_raw_ptr(&self) -> *mut TaskContext {
+    pub fn get_context_raw_ptr(&self) -> *const TaskContext {
         &self.context as *const TaskContext as *mut _
     }
     pub fn get_context_raw_mut_ptr(&mut self) -> *mut TaskContext {
         &mut self.context as *mut TaskContext
     }
     pub fn set_status(&mut self, status: TaskStatus) {
-        self.statue = status;
+        self.status = status;
     }
     pub fn status(&self) -> TaskStatus {
-        self.statue
+        self.status
+    }
+
+    pub fn task_context(&mut self) -> &mut TaskContext {
+        &mut self.context
     }
 }
 
@@ -74,4 +120,46 @@ pub enum TaskStatus {
     Zombie,
     /// 终止态
     Terminated,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum TaskOperation {
+    Create(TaskMeta),
+    Wait,
+    Wakeup(usize),
+    Yield,
+    Exit,
+    Remove(usize),
+    Current,
+    ExitOver(usize),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum OperationResult {
+    Current(Option<usize>),
+    KstackTop(usize),
+    Null,
+    ExitOver(bool),
+}
+
+impl OperationResult {
+    pub fn current_tid(&self) -> Option<usize> {
+        match self {
+            OperationResult::Current(tid) => *tid,
+            _ => panic!("OperationResult is not Current"),
+        }
+    }
+
+    pub fn kstack_top(&self) -> usize {
+        match self {
+            OperationResult::KstackTop(top) => *top,
+            _ => panic!("OperationResult is not KstackTop"),
+        }
+    }
+    pub fn is_exit_over(&self) -> bool {
+        match self {
+            OperationResult::ExitOver(is_exit) => *is_exit,
+            _ => panic!("OperationResult is not ExitOver"),
+        }
+    }
 }

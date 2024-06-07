@@ -18,6 +18,7 @@ where
 
 unsafe impl<T: RRefable> RRefable for RRef<T> {}
 unsafe impl<T: RRefable> Send for RRef<T> where T: Send {}
+unsafe impl<T: RRefable> Sync for RRef<T> where T: Sync {}
 
 impl<T: RRefable> RRef<T>
 where
