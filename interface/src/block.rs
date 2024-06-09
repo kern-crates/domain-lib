@@ -9,7 +9,7 @@ use crate::{Basic, DeviceBase};
 
 #[proxy(BlkDomainProxy,Range<usize>)]
 pub trait BlkDeviceDomain: DeviceBase + Basic + DowncastSync {
-    fn init(&self, device_info: Range<usize>) -> AlienResult<()>;
+    fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     #[recover]
     fn read_block(&self, block: u32, data: RRef<[u8; 512]>) -> AlienResult<RRef<[u8; 512]>>;
     fn write_block(&self, block: u32, data: &RRef<[u8; 512]>) -> AlienResult<usize>;

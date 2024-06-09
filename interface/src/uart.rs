@@ -7,7 +7,7 @@ use super::{AlienError, AlienResult};
 use crate::{Basic, DeviceBase};
 #[proxy(UartDomainProxy,Range<usize>)]
 pub trait UartDomain: DeviceBase + Basic + DowncastSync {
-    fn init(&self, device_info: Range<usize>) -> AlienResult<()>;
+    fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     /// Write a character to the UART
     fn putc(&self, ch: u8) -> AlienResult<()>;
     /// Read a character from the UART

@@ -1,3 +1,4 @@
+mod empty_impl;
 mod super_trait;
 
 use proc_macro2::{Ident, TokenStream};
@@ -7,7 +8,10 @@ use syn::{
     parse_macro_input, FnArg, ItemTrait, ReturnType, Token, TraitItem, TraitItemFn, Type,
 };
 
-use crate::super_trait::impl_supertrait;
+use crate::{
+    empty_impl::{impl_empty_func, impl_empty_supertrait},
+    super_trait::impl_supertrait,
+};
 
 struct Proxy {
     ident: Ident,
@@ -83,7 +87,13 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
     let func_vec = trait_def.items.clone();
 
     let ident = proxy.ident.clone();
-    let supertrait_code = impl_supertrait(ident.clone(), trait_def.clone());
+    let super_trait_code = impl_supertrait(ident.clone(), trait_def.clone());
+
+    let empty_ident = Ident::new(&format!("{}EmptyImpl", trait_name), trait_name.span());
+    let super_trait_empty_code = impl_empty_supertrait(empty_ident.clone(), trait_def.clone());
+    let empty_func_code = impl_empty_func(func_vec.clone());
+
+    // println!("empty_func_code: {:?}",empty_func_code);
 
     let (func_code, extern_func_code) =
         impl_func(func_vec, &trait_name, &ident, proxy.source.is_some());
@@ -93,21 +103,36 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
     let impl_ident = format!("impl_for_{}", trait_name);
     let impl_ident = Ident::new(&impl_ident, trait_name.span());
 
+    let impl_empty_ident = format!("impl_empty_for_{}", trait_name);
+    let impl_empty_ident = Ident::new(&impl_empty_ident, trait_name.span());
+
     let resource_field = if proxy.source.is_some() {
-        let ty = proxy.source.as_ref().unwrap();
         quote! (
-            resource: Once<#ty>
+            resource: Once<Box<dyn Any+Send+Sync>>
         )
     } else {
         quote!()
     };
 
-    let resource_init = if proxy.source.is_some() {
-        quote! (
+    let (resource_init, cast, call_once) = if proxy.source.is_some() {
+        let s1 = quote! (
             resource: Once::new()
-        )
+        );
+        let s_ty = proxy.source.as_ref().unwrap();
+        let s2 = quote! (
+            let arg = argv.as_ref().downcast_ref::<#s_ty>().unwrap();
+            self.init(arg)?;
+        );
+        let s3 = quote! (
+            self.resource.call_once(|| argv);
+        );
+        (s1, s2, s3)
     } else {
-        quote!()
+        let s2 = quote!(
+            let _ = argv;
+            self.init()?;
+        );
+        (quote!(), s2, quote!())
     };
 
     quote::quote!(
@@ -119,7 +144,6 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                     id:AtomicU64,
                     domain: RcuData<Box<dyn #trait_name>>,
                     srcu_lock: SRcuLock,
-                    old_domain: Mutex<Vec<Box<Box<dyn #trait_name>>>>,
                     domain_loader: Mutex<DomainLoader>,
                     #resource_field
                 }
@@ -129,7 +153,6 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                             id: AtomicU64::new(id),
                             domain: RcuData::new(Box::new(domain)),
                             srcu_lock: SRcuLock::new(),
-                            old_domain: Mutex::new(Vec::new()),
                             domain_loader: Mutex::new(domain_loader),
                             #resource_init
                         }
@@ -138,7 +161,25 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                         self.id.load(core::sync::atomic::Ordering::Relaxed)
                     }
                 }
-                #supertrait_code
+
+
+                impl ProxyBuilder for #ident{
+                    type T = Box<dyn #trait_name>;
+                    fn build(id:u64, domain: Self::T,domain_loader: DomainLoader)->Self{
+                        Self::new(id,domain,domain_loader)
+                    }
+                    fn build_empty(id:u64, domain_loader: DomainLoader)->Self{
+                        let domain = Box::new(#empty_ident::new());
+                        Self::new(id,domain,domain_loader)
+                    }
+                    fn init_by_box(&self, argv: Box<dyn Any+Send+Sync>) -> AlienResult<()>{
+                        #cast
+                        #call_once
+                        Ok(())
+                    }
+                }
+
+                #super_trait_code
 
 
                 impl #trait_name for #ident{
@@ -146,8 +187,24 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                 }
 
                 #(#extern_func_code)*
+
+
+                #[derive(Debug)]
+                struct #empty_ident;
+
+                impl #empty_ident{
+                    pub fn new()->Self{
+                        Self
+                    }
+                }
+                #super_trait_empty_code
+                impl #trait_name for #empty_ident{
+                    #(#empty_func_code)*
+                }
+
             };
         }
+
         #[macro_export]
         macro_rules! #impl_ident {
             ($name:ident) => {
@@ -156,6 +213,16 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                 }
             }
         }
+
+        #[macro_export]
+        macro_rules! #impl_empty_ident {
+            ($name:ident) => {
+                impl #trait_name for $name{
+                    #(#empty_func_code)*
+                }
+            }
+        }
+
     )
     .into()
 }
@@ -186,7 +253,7 @@ fn impl_func_code(
     func: &TraitItemFn,
     trait_name: &Ident,
     proxy_name: &Ident,
-    has_resource: bool,
+    _has_resource: bool,
 ) -> (TokenStream, TokenStream) {
     let has_recover = func
         .attrs
@@ -245,19 +312,19 @@ fn impl_func_code(
             if input_argv.len() > 0 {
                 assert_eq!(input_argv.len(), 1);
             }
-            let resource_init = if has_resource {
-                let argv = input_argv[0].clone();
-                quote! (
-                    self.resource.call_once(|| #argv.to_owned());
-                )
-            } else {
-                quote!()
-            };
+            // let resource_init = if has_resource {
+            //     let argv = input_argv[0].clone();
+            //     quote! (
+            //         self.resource.call_once(|| #argv.to_owned());
+            //     )
+            // } else {
+            //     quote!()
+            // };
 
             let token = quote!(
                 #(#attr)*
                 #sig{
-                    #resource_init
+                    // #resource_init
                     self.domain.get().init(#(#input_argv),*)
                 }
             );

@@ -8,7 +8,6 @@ use crate::{vfs::InodeID, Basic};
 #[proxy(TaskDomainProxy)]
 pub trait TaskDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
-    // fn run(&self) -> AlienResult<()>;
     fn trap_frame_virt_addr(&self) -> AlienResult<usize>;
     fn current_task_satp(&self) -> AlienResult<usize>;
     fn trap_frame_phy_addr(&self) -> AlienResult<usize>;
@@ -28,9 +27,6 @@ pub trait TaskDomain: Basic + DowncastSync {
     fn current_tid(&self) -> AlienResult<usize>;
     fn current_pid(&self) -> AlienResult<usize>;
     fn current_ppid(&self) -> AlienResult<usize>;
-    /// Set current task to wait and switch to next task
-    // fn current_to_wait(&self) -> AlienResult<()>;
-    // fn wake_up_wait_task(&self, tid: usize) -> AlienResult<()>;
     fn do_brk(&self, addr: usize) -> AlienResult<isize>;
     fn do_clone(
         &self,
@@ -53,7 +49,6 @@ pub trait TaskDomain: Basic + DowncastSync {
         argv_ptr: usize,
         envp_ptr: usize,
     ) -> AlienResult<isize>;
-    // fn do_yield(&self) -> AlienResult<isize>;
     fn do_set_tid_address(&self, tidptr: usize) -> AlienResult<isize>;
     fn do_mmap(
         &self,

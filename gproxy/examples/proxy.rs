@@ -24,10 +24,9 @@ pub trait DeviceBase {
     }
 }
 
-#[proxy(XXXDomainProxy,Range<usize>)]
+#[proxy(XXXDomainProxy)]
 pub trait XXXDomain: Basic + DeviceBase {
-    fn init(&self, t: Range<usize>) -> AlienResult<()>;
-    #[recover]
+    fn init(&self) -> AlienResult<()>;
     #[no_check]
     fn xxxx(&self, x: usize) -> AlienResult<()>;
     #[no_check]
@@ -36,11 +35,7 @@ pub trait XXXDomain: Basic + DeviceBase {
 #[derive(Debug)]
 pub struct DomainLoader {}
 
-impl DomainLoader {
-    // pub fn call<T:?Sized>()->Box<T>{
-    //
-    // }
-}
+impl DomainLoader {}
 
 gen_for_XXXDomain!();
 

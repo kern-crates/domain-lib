@@ -9,7 +9,7 @@ use crate::{Basic, DeviceBase};
 
 #[proxy(NetDeviceDomainProxy, Range<usize>)]
 pub trait NetDeviceDomain: DeviceBase + Basic + DowncastSync {
-    fn init(&self, device_info: Range<usize>) -> AlienResult<()>;
+    fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     /// The ethernet address of the NIC.
     fn mac_address(&self) -> AlienResult<[u8; 6]>;
 

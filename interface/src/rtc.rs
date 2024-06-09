@@ -10,7 +10,7 @@ use crate::{Basic, DeviceBase};
 
 #[proxy(RtcDomainProxy,Range<usize>)]
 pub trait RtcDomain: DeviceBase + Basic + DowncastSync {
-    fn init(&self, device_info: Range<usize>) -> AlienResult<()>;
+    fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     fn read_time(&self, time: RRef<RtcTime>) -> AlienResult<RRef<RtcTime>>;
 }
 
