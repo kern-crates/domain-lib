@@ -8,7 +8,7 @@ use crate::Basic;
 #[proxy(LogDomainProxy)]
 pub trait LogDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
-    fn log(&self, level: Level, msg: RRefVec<u8>) -> AlienResult<()>;
+    fn log(&self, level: Level, msg: &RRefVec<u8>) -> AlienResult<()>;
     fn set_max_level(&self, level: LevelFilter) -> AlienResult<()>;
 }
 

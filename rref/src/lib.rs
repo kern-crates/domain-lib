@@ -1,5 +1,7 @@
 #![feature(auto_traits)]
 #![feature(negative_impls)]
+#![feature(specialization)]
+#![allow(incomplete_features)]
 #![no_std]
 mod rref;
 mod rvec;
@@ -7,7 +9,11 @@ mod rvec;
 extern crate alloc;
 
 use alloc::boxed::Box;
-use core::{alloc::Layout, any::TypeId, sync::atomic::AtomicU64};
+use core::{
+    alloc::Layout,
+    any::{type_name_of_val, TypeId},
+    sync::atomic::AtomicU64,
+};
 
 pub use rref::RRef;
 pub use rvec::RRefVec;
@@ -27,9 +33,73 @@ pub trait TypeIdentifiable {
 
 impl<T: 'static> TypeIdentifiable for T {
     fn type_id() -> TypeId {
-        core::any::TypeId::of::<T>()
+        TypeId::of::<T>()
     }
 }
+
+pub trait CustomDrop {
+    fn custom_drop(&mut self);
+}
+
+impl<T: RRefable> CustomDrop for T {
+    default fn custom_drop(&mut self) {
+        log::warn!("default for {}", type_name_of_val(self));
+    }
+}
+impl<T: RRefable> CustomDrop for Option<T> {
+    fn custom_drop(&mut self) {
+        if let Some(val) = self {
+            val.custom_drop();
+        }
+    }
+}
+
+impl<T: RRefable, const N: usize> CustomDrop for [T; N] {
+    fn custom_drop(&mut self) {
+        for el in self.iter_mut() {
+            el.custom_drop();
+        }
+    }
+}
+
+pub trait SharedData {
+    fn move_to(&self, new_domain_id: u64) -> u64;
+}
+
+impl<T: RRefable> SharedData for T {
+    default fn move_to(&self, _new_domain_id: u64) -> u64 {
+        0
+    }
+}
+
+impl<T: RRefable> SharedData for Option<T> {
+    fn move_to(&self, new_domain_id: u64) -> u64 {
+        match self {
+            Some(val) => val.move_to(new_domain_id),
+            None => 0,
+        }
+    }
+}
+
+macro_rules! impl_shared_data {
+    ($(($index:tt,$t:ident)),*) => {
+        impl <T:RRefable> SharedData for ($($t),*){
+            #[allow(unused_assignments)]
+            fn move_to(&self, new_domain_id: u64)->u64{
+                let mut domain_id;
+                $(domain_id = self.$index.move_to(new_domain_id);)*
+                domain_id
+            }
+        }
+    }
+}
+
+impl_shared_data!((0, T), (1, T));
+impl_shared_data!((0, T), (1, T), (2, T));
+impl_shared_data!((0, T), (1, T), (2, T), (3, T));
+impl_shared_data!((0, T), (1, T), (2, T), (3, T), (4, T));
+impl_shared_data!((0, T), (1, T), (2, T), (3, T), (4, T), (5, T));
+impl_shared_data!((0, T), (1, T), (2, T), (3, T), (4, T), (5, T), (6, T));
 
 #[derive(Copy, Clone)]
 pub struct SharedHeapAllocation {
@@ -38,12 +108,27 @@ pub struct SharedHeapAllocation {
     pub borrow_count_pointer: *mut u64,
     pub layout: Layout,
     pub type_id: TypeId,
+    pub drop_fn: fn(TypeId, *mut u8),
+}
+
+impl SharedHeapAllocation {
+    pub fn domain_id(&self) -> u64 {
+        unsafe { *self.domain_id_pointer }
+    }
+    pub fn drop_fn(&self) {
+        (self.drop_fn)(self.type_id, self.value_pointer);
+    }
 }
 
 unsafe impl Send for SharedHeapAllocation {}
 
 pub trait SharedHeapAlloc: Send + Sync {
-    unsafe fn alloc(&self, layout: Layout, type_id: TypeId) -> Option<SharedHeapAllocation>;
+    unsafe fn alloc(
+        &self,
+        layout: Layout,
+        type_id: TypeId,
+        drop_fn: fn(TypeId, *mut u8),
+    ) -> Option<SharedHeapAllocation>;
     unsafe fn dealloc(&self, ptr: *mut u8);
 }
 
@@ -56,8 +141,12 @@ pub fn init(allocator: Box<dyn SharedHeapAlloc>, domain_id: u64) {
     CRATE_DOMAIN_ID.store(domain_id, core::sync::atomic::Ordering::SeqCst);
 }
 
-pub fn share_heap_alloc(layout: Layout, type_id: TypeId) -> Option<SharedHeapAllocation> {
-    unsafe { SHARED_HEAP.get_unchecked().alloc(layout, type_id) }
+pub fn share_heap_alloc(
+    layout: Layout,
+    type_id: TypeId,
+    drop_fn: fn(TypeId, *mut u8),
+) -> Option<SharedHeapAllocation> {
+    unsafe { SHARED_HEAP.get_unchecked().alloc(layout, type_id, drop_fn) }
 }
 
 pub fn share_heap_dealloc(ptr: *mut u8) {

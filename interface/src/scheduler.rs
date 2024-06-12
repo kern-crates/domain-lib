@@ -14,7 +14,7 @@ pub trait SchedulerDomain: Basic + DowncastSync {
     /// add one task to scheduler
     fn add_task(&self, scheduling_info: RRef<TaskSchedulingInfo>) -> AlienResult<()>;
     /// The next task to run
-    fn fetch_task(&self) -> AlienResult<Option<RRef<TaskSchedulingInfo>>>;
+    fn fetch_task(&self, info: RRef<TaskSchedulingInfo>) -> AlienResult<RRef<TaskSchedulingInfo>>;
     fn dump_meta_data(&self, data: &mut SchedulerDataContainer) -> AlienResult<()>;
 }
 

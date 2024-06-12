@@ -2,7 +2,7 @@ mod empty_impl;
 mod super_trait;
 
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input, FnArg, ItemTrait, ReturnType, Token, TraitItem, TraitItemFn, Type,
@@ -285,16 +285,27 @@ fn impl_func_code(
     let input = sig.inputs.clone();
     let out_put = sig.output.clone();
     let mut fn_args = vec![];
+
+    let mut arg_domain_change = vec![];
+
     let input_argv = input
         .iter()
         .skip(1)
         .map(|arg| match arg {
             syn::FnArg::Typed(pat_type) => {
+                let ty = pat_type.ty.as_ref().to_token_stream().to_string();
+                // println!("ty: {:?}", ty.to_token_stream().to_string());
                 let pat = pat_type.pat.as_ref();
                 match pat {
                     syn::Pat::Ident(ident) => {
                         fn_args.push(arg.clone());
                         let name = ident.ident.clone();
+                        if ty.starts_with("RRef") {
+                            let change_code = quote! (
+                                let old_id = #name.move_to(id);
+                            );
+                            arg_domain_change.push(change_code);
+                        }
                         name
                     }
                     _ => {
@@ -312,19 +323,9 @@ fn impl_func_code(
             if input_argv.len() > 0 {
                 assert_eq!(input_argv.len(), 1);
             }
-            // let resource_init = if has_resource {
-            //     let argv = input_argv[0].clone();
-            //     quote! (
-            //         self.resource.call_once(|| #argv.to_owned());
-            //     )
-            // } else {
-            //     quote!()
-            // };
-
             let token = quote!(
                 #(#attr)*
                 #sig{
-                    // #resource_init
                     self.domain.get().init(#(#input_argv),*)
                 }
             );
@@ -338,6 +339,7 @@ fn impl_func_code(
                 name,
                 input_argv,
                 fn_args,
+                arg_domain_change,
                 out_put,
             );
 
@@ -372,6 +374,7 @@ fn gen_trampoline(
     func_name: Ident,
     input_argv: Vec<Ident>,
     fn_args: Vec<FnArg>,
+    arg_domain_change: Vec<TokenStream>,
     out_put: ReturnType,
 ) -> (TokenStream, TokenStream) {
     let trampoline_ident = format!("{}_{}_trampoline", proxy_name, func_name);
@@ -386,13 +389,39 @@ fn gen_trampoline(
     let error_ident_ptr = format!("{}_error_ptr", real_ident);
     let error_ident_ptr = Ident::new(&error_ident_ptr, func_name.span());
 
+    let (get_domain_id, call_trampoline_arg) = if arg_domain_change.is_empty() {
+        let x2 = quote!(
+            &guard,#(#input_argv),*
+        );
+        (quote!(), x2)
+    } else {
+        let x1 = quote!(let id = self.domain_id(););
+        let x2 = quote!(
+            &guard,id,#(#input_argv),*
+        );
+        (x1, x2)
+    };
+
+    let (trampoline_func_arg, call_move_to) = if arg_domain_change.is_empty() {
+        let x1 = quote!(#(#fn_args),*);
+        let x2 = quote!();
+        (x1, x2)
+    } else {
+        let x1 = quote!(id:u64,#(#fn_args),*);
+        let x2 = quote!(
+            r.move_to(old_id);
+        );
+        (x1, x2)
+    };
+
     if has_recover {
         let call = quote! (
             {
+                #get_domain_id
                 let idx = self.srcu_lock.read_lock();
                 let guard = self.domain.get();
                 let res = unsafe {
-                    #trampoline_ident(&guard, #(#input_argv),*)
+                    #trampoline_ident(#call_trampoline_arg)
                 };
                 self.srcu_lock.read_unlock(idx);
                 res
@@ -403,7 +432,7 @@ fn gen_trampoline(
             #[naked]
             #[allow(non_snake_case)]
             #[allow(undefined_naked_function_abi)]
-            unsafe fn #trampoline_ident(domain:&alloc::boxed::Box<dyn #trait_name>,#(#fn_args),*) #out_put{
+            unsafe fn #trampoline_ident(domain:&Box<dyn #trait_name>,#trampoline_func_arg) #out_put{
                 core::arch::asm!(
                     "addi sp, sp, -33*8",
                     "sd x1, 1*8(sp)",
@@ -467,8 +496,12 @@ fn gen_trampoline(
                 )
             }
             #[allow(non_snake_case)]
-            fn #real_ident(domain:&alloc::boxed::Box<dyn #trait_name>,#(#fn_args),*) #out_put{
-                let res = domain.#func_name(#(#input_argv),*);
+            fn #real_ident(domain:&Box<dyn #trait_name>,#trampoline_func_arg) #out_put{
+                #(#arg_domain_change)*
+                let res = domain.#func_name(#(#input_argv),*).map(|r| {
+                    #call_move_to
+                    r
+                });
                 continuation::pop_continuation();
                 res
             }
@@ -486,8 +519,13 @@ fn gen_trampoline(
     } else {
         (
             quote! (
+                #get_domain_id
                 let idx = self.srcu_lock.read_lock();
-                let res = self.domain.get().#func_name(#(#input_argv),*);
+                #(#arg_domain_change)*
+                let res = self.domain.get().#func_name(#(#input_argv),*).map(|r| {
+                    #call_move_to
+                    r
+                });
                 self.srcu_lock.read_unlock(idx);
                 res
             ),

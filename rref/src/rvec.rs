@@ -2,10 +2,10 @@ use core::{
     alloc::Layout,
     fmt::{Debug, Formatter},
     mem::MaybeUninit,
-    ops::{Deref, DerefMut},
+    ops::{Index, IndexMut},
 };
 
-use super::{RRef, RRefable, TypeIdentifiable};
+use super::{CustomDrop, RRef, RRefable, SharedData, TypeIdentifiable};
 
 pub struct RRefVec<T>
 where
@@ -16,6 +16,7 @@ where
 }
 unsafe impl<T> RRefable for RRefVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
 unsafe impl<T> Send for RRefVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
+
 impl<T> RRefVec<T>
 where
     T: 'static + RRefable + Copy + TypeIdentifiable,
@@ -49,26 +50,18 @@ where
     pub fn len(&self) -> usize {
         self.size
     }
-    pub fn move_to(&self, new_domain_id: u64) {
-        self.data.move_to(new_domain_id);
+}
+
+impl<T: RRefable + Copy + TypeIdentifiable> Index<usize> for RRefVec<T> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.as_slice()[index]
     }
 }
 
-impl<T> Deref for RRefVec<T>
-where
-    T: 'static + RRefable + Copy + TypeIdentifiable,
-{
-    type Target = T;
-    fn deref(&self) -> &T {
-        &self.data
-    }
-}
-impl<T> DerefMut for RRefVec<T>
-where
-    T: 'static + RRefable + Copy + TypeIdentifiable,
-{
-    fn deref_mut(&mut self) -> &mut T {
-        &mut self.data
+impl<T: RRefable + Copy + TypeIdentifiable> IndexMut<usize> for RRefVec<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.as_mut_slice()[index]
     }
 }
 
@@ -81,5 +74,24 @@ where
             .field("data", &self.data)
             .field("size", &self.size)
             .finish()
+    }
+}
+
+impl<T: RRefable + Copy + TypeIdentifiable> Drop for RRefVec<T> {
+    fn drop(&mut self) {
+        log::warn!("<drop> for RRefVec");
+    }
+}
+
+impl<T: RRefable + Copy + TypeIdentifiable> CustomDrop for RRefVec<T> {
+    fn custom_drop(&mut self) {
+        log::warn!("<custom_drop> for RRefVec");
+        self.data.custom_drop();
+    }
+}
+
+impl<T: RRefable + Copy + TypeIdentifiable> SharedData for RRefVec<T> {
+    fn move_to(&self, new_domain_id: u64) -> u64 {
+        self.data.move_to(new_domain_id)
     }
 }
