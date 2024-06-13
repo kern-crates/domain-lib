@@ -1,3 +1,5 @@
+use core::ops::Range;
+
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
 use pod::Pod;
@@ -24,7 +26,6 @@ pub trait TaskDomain: Basic + DowncastSync {
         src: usize,
         buf: RRefVec<u8>,
     ) -> AlienResult<(RRefVec<u8>, usize)>;
-    fn current_tid(&self) -> AlienResult<usize>;
     fn current_pid(&self) -> AlienResult<usize>;
     fn current_ppid(&self) -> AlienResult<usize>;
     fn do_brk(&self, addr: usize) -> AlienResult<isize>;
@@ -73,6 +74,7 @@ pub trait TaskDomain: Basic + DowncastSync {
     fn do_dup(&self, old_fd: usize, new_fd: Option<usize>) -> AlienResult<isize>;
     fn do_pipe2(&self, r: InodeID, w: InodeID, pipe: usize) -> AlienResult<isize>;
     fn do_exit(&self, exit_code: isize) -> AlienResult<isize>;
+    fn do_mmap_device(&self, phy_addr_range: Range<usize>) -> AlienResult<isize>;
 }
 
 #[derive(Debug, Default)]

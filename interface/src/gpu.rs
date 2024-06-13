@@ -12,6 +12,7 @@ pub trait GpuDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     fn flush(&self) -> AlienResult<()>;
     fn fill(&self, offset: u32, buf: &RRefVec<u8>) -> AlienResult<usize>;
+    fn buffer_range(&self) -> AlienResult<Range<usize>>;
 }
 
 impl_downcast!(sync GpuDomain);

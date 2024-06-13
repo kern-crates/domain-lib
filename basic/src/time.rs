@@ -1,5 +1,5 @@
 use config::CLOCK_FREQ;
-use pconst::time::TimeSpec;
+use pconst::time::{TimeSpec, TimeVal};
 
 pub fn read_time_ms() -> u64 {
     get_time_ms()
@@ -36,6 +36,16 @@ impl TimeNow for TimeSpec {
         Self {
             tv_sec: time / CLOCK_FREQ,
             tv_nsec: (time % CLOCK_FREQ) * 1000000000 / CLOCK_FREQ,
+        }
+    }
+}
+
+impl TimeNow for TimeVal {
+    fn now() -> Self {
+        let time = read_timer();
+        Self {
+            tv_sec: time / CLOCK_FREQ,
+            tv_usec: (time % CLOCK_FREQ) * 1000000 / CLOCK_FREQ,
         }
     }
 }

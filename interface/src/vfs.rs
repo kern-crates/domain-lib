@@ -42,6 +42,7 @@ pub trait VfsDomain: Basic + DowncastSync {
         &self,
         root: InodeID,
         path: &RRefVec<u8>,
+        path_len: usize,
         mode: u32,
         open_flags: usize,
     ) -> AlienResult<InodeID>;
@@ -73,7 +74,10 @@ pub trait VfsDomain: Basic + DowncastSync {
     fn vfs_inode_type(&self, inode: InodeID) -> AlienResult<VfsNodeType>;
     fn vfs_readdir(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
     fn vfs_get_path(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
+    /// truncate the file to len
     fn vfs_ftruncate(&self, inode: InodeID, len: u64) -> AlienResult<()>;
+    fn vfs_update_atime(&self, inode: InodeID, atime_sec: u64, atime_nano: u64) -> AlienResult<()>;
+    fn vfs_update_mtime(&self, inode: InodeID, mtime_sec: u64, mtime_nano: u64) -> AlienResult<()>;
     fn do_fcntl(&self, inode: InodeID, cmd: usize, args: usize) -> AlienResult<isize>;
     fn do_pipe2(&self, flags: usize) -> AlienResult<(InodeID, InodeID)>;
     /// Create a socket and return the inode id

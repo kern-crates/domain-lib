@@ -1,4 +1,4 @@
-use core::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut, Range};
 
 use config::FRAME_SIZE;
 use memory_addr::{PhysAddr, VirtAddr};
@@ -28,6 +28,16 @@ impl FrameTracker {
         Self {
             ptr: trampoline_phy_addr,
             page_count: 1,
+            dealloc: false,
+        }
+    }
+
+    pub fn from_phy_range(r: Range<usize>) -> Self {
+        assert_eq!(r.start % FRAME_SIZE, 0);
+        assert_eq!(r.end % FRAME_SIZE, 0);
+        Self {
+            ptr: r.start,
+            page_count: (r.end - r.start) / FRAME_SIZE,
             dealloc: false,
         }
     }
