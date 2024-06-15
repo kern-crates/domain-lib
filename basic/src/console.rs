@@ -1,4 +1,6 @@
 use core::fmt::{Arguments, Write};
+
+use ksync::Mutex;
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
@@ -29,6 +31,8 @@ impl Write for Stdout {
         Ok(())
     }
 }
+
+static STDOUT: Mutex<Stdout> = Mutex::new(Stdout);
 pub fn __print(args: Arguments) {
-    Stdout.write_fmt(args).unwrap();
+    STDOUT.lock().write_fmt(args).unwrap();
 }
