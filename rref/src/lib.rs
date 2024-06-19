@@ -12,7 +12,6 @@ use alloc::boxed::Box;
 use core::{
     alloc::Layout,
     any::{type_name_of_val, TypeId},
-    sync::atomic::AtomicU64,
 };
 
 pub use rref::RRef;
@@ -134,11 +133,11 @@ pub trait SharedHeapAlloc: Send + Sync {
 
 static SHARED_HEAP: Once<Box<dyn SharedHeapAlloc>> = Once::new();
 
-static CRATE_DOMAIN_ID: AtomicU64 = AtomicU64::new(0);
+static CRATE_DOMAIN_ID: Once<u64> = Once::new();
 
 pub fn init(allocator: Box<dyn SharedHeapAlloc>, domain_id: u64) {
     SHARED_HEAP.call_once(|| allocator);
-    CRATE_DOMAIN_ID.store(domain_id, core::sync::atomic::Ordering::SeqCst);
+    CRATE_DOMAIN_ID.call_once(|| domain_id);
 }
 
 pub fn share_heap_alloc(
@@ -155,5 +154,5 @@ pub fn share_heap_dealloc(ptr: *mut u8) {
 
 #[inline]
 pub fn domain_id() -> u64 {
-    CRATE_DOMAIN_ID.load(core::sync::atomic::Ordering::SeqCst)
+    unsafe { *CRATE_DOMAIN_ID.get_unchecked() }
 }

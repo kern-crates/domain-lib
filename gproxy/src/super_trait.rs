@@ -17,11 +17,12 @@ pub fn impl_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream {
                             let device_base = quote!(
                                 impl DeviceBase for #ident{
                                     fn handle_irq(&self)->AlienResult<()>{
-                                        if !self.is_active() {
+                                        let idx = self.srcu_lock.read_lock();
+                                        let domain = self.domain.get();
+                                        if !domain.is_active() {
                                             return Err(AlienError::DOMAINCRASH);
                                         }
-                                        let idx = self.srcu_lock.read_lock();
-                                        let res = self.domain.get().handle_irq();
+                                        let res = domain.handle_irq();
                                         self.srcu_lock.read_unlock(idx);
                                         res
                                     }
@@ -35,6 +36,12 @@ pub fn impl_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream {
                                     fn is_active(&self)->bool{
                                         let idx = self.srcu_lock.read_lock();
                                         let res = self.domain.get().is_active();
+                                        self.srcu_lock.read_unlock(idx);
+                                        res
+                                    }
+                                    fn domain_id(&self)->u64{
+                                        let idx = self.srcu_lock.read_lock();
+                                        let res = self.domain.get().domain_id();
                                         self.srcu_lock.read_unlock(idx);
                                         res
                                     }

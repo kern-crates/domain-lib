@@ -29,6 +29,9 @@ pub fn impl_empty_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream 
                                     fn is_active(&self)->bool{
                                         false
                                     }
+                                    fn domain_id(&self)->u64{
+                                        u64::MAX
+                                    }
                                 }
                             );
                             code.push(basic)

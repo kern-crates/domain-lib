@@ -141,36 +141,30 @@ fn def_struct(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
             () => {
                 #[derive(Debug)]
                 pub struct #ident{
-                    id:AtomicU64,
                     domain: RcuData<Box<dyn #trait_name>>,
                     srcu_lock: SRcuLock,
                     domain_loader: Mutex<DomainLoader>,
                     #resource_field
                 }
                 impl #ident{
-                    pub fn new(id:u64, domain: Box<dyn #trait_name>,domain_loader: DomainLoader)->Self{
+                    pub fn new(domain: Box<dyn #trait_name>,domain_loader: DomainLoader)->Self{
                         Self{
-                            id: AtomicU64::new(id),
                             domain: RcuData::new(Box::new(domain)),
                             srcu_lock: SRcuLock::new(),
                             domain_loader: Mutex::new(domain_loader),
                             #resource_init
                         }
                     }
-                    pub fn domain_id(&self)->u64{
-                        self.id.load(core::sync::atomic::Ordering::Relaxed)
-                    }
                 }
-
 
                 impl ProxyBuilder for #ident{
                     type T = Box<dyn #trait_name>;
-                    fn build(id:u64, domain: Self::T,domain_loader: DomainLoader)->Self{
-                        Self::new(id,domain,domain_loader)
+                    fn build(domain: Self::T,domain_loader: DomainLoader)->Self{
+                        Self::new(domain,domain_loader)
                     }
-                    fn build_empty(id:u64, domain_loader: DomainLoader)->Self{
+                    fn build_empty(domain_loader: DomainLoader)->Self{
                         let domain = Box::new(#empty_ident::new());
-                        Self::new(id,domain,domain_loader)
+                        Self::new(domain,domain_loader)
                     }
                     fn init_by_box(&self, argv: Box<dyn Any+Send+Sync>) -> AlienResult<()>{
                         #cast
@@ -341,25 +335,13 @@ fn impl_func_code(
                 fn_args,
                 arg_domain_change,
                 out_put,
+                no_check,
             );
-
-            let body = if no_check {
-                quote! (
-                    #func_inner
-                )
-            } else {
-                quote! (
-                    if !self.is_active() {
-                        return Err(AlienError::DOMAINCRASH);
-                    }
-                    #func_inner
-                )
-            };
 
             let token = quote!(
                 #(#attr)*
                 #sig{
-                    #body
+                    #func_inner
                 }
             );
             (token, trampoline)
@@ -376,6 +358,7 @@ fn gen_trampoline(
     fn_args: Vec<FnArg>,
     arg_domain_change: Vec<TokenStream>,
     out_put: ReturnType,
+    no_check: bool,
 ) -> (TokenStream, TokenStream) {
     let trampoline_ident = format!("{}_{}_trampoline", proxy_name, func_name);
     let trampoline_ident = Ident::new(&trampoline_ident, func_name.span());
@@ -391,15 +374,25 @@ fn gen_trampoline(
 
     let (get_domain_id, call_trampoline_arg) = if arg_domain_change.is_empty() {
         let x2 = quote!(
-            &guard,#(#input_argv),*
+            &r_domain,#(#input_argv),*
         );
         (quote!(), x2)
     } else {
-        let x1 = quote!(let id = self.domain_id(););
+        let x1 = quote!(
+            let id = r_domain.domain_id();
+        );
         let x2 = quote!(
-            &guard,id,#(#input_argv),*
+            &r_domain,id,#(#input_argv),*
         );
         (x1, x2)
+    };
+
+    let check_code = if no_check {
+        quote!()
+    } else {
+        quote!(if !r_domain.is_active() {
+            return Err(AlienError::DOMAINCRASH);
+        })
     };
 
     let (trampoline_func_arg, call_move_to) = if arg_domain_change.is_empty() {
@@ -417,9 +410,11 @@ fn gen_trampoline(
     if has_recover {
         let call = quote! (
             {
-                #get_domain_id
+
                 let idx = self.srcu_lock.read_lock();
-                let guard = self.domain.get();
+                let r_domain = self.domain.get();
+                #check_code
+                #get_domain_id
                 let res = unsafe {
                     #trampoline_ident(#call_trampoline_arg)
                 };
@@ -496,9 +491,9 @@ fn gen_trampoline(
                 )
             }
             #[allow(non_snake_case)]
-            fn #real_ident(domain:&Box<dyn #trait_name>,#trampoline_func_arg) #out_put{
+            fn #real_ident(r_domain:&Box<dyn #trait_name>,#trampoline_func_arg) #out_put{
                 #(#arg_domain_change)*
-                let res = domain.#func_name(#(#input_argv),*).map(|r| {
+                let res = r_domain.#func_name(#(#input_argv),*).map(|r| {
                     #call_move_to
                     r
                 });
@@ -519,10 +514,12 @@ fn gen_trampoline(
     } else {
         (
             quote! (
-                #get_domain_id
                 let idx = self.srcu_lock.read_lock();
+                let r_domain = self.domain.get();
+                #check_code
+                #get_domain_id
                 #(#arg_domain_change)*
-                let res = self.domain.get().#func_name(#(#input_argv),*).map(|r| {
+                let res = r_domain.#func_name(#(#input_argv),*).map(|r| {
                     #call_move_to
                     r
                 });

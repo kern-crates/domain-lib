@@ -31,6 +31,8 @@ type AlienError = LinuxErrno;
 type AlienResult<T> = Result<T, LinuxErrno>;
 
 pub trait Basic: Send + Sync + Debug + Any {
+    fn domain_id(&self) -> u64;
+
     #[cfg(feature = "domain")]
     fn is_active(&self) -> bool {
         __impl::is_active()

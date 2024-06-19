@@ -1,5 +1,8 @@
 #![no_std]
-use core::cell::{RefCell, RefMut};
+use core::{
+    cell::{RefCell, RefMut},
+    ops::Deref,
+};
 
 use arch::{hart_id, interrupt_disable, interrupt_enable, is_interrupt_enable};
 use config::CPU_NUM;
@@ -27,13 +30,22 @@ impl Cpu {
     }
 }
 
+#[derive(Debug)]
 pub struct SafeRefCell<T>(RefCell<T>);
 
 /// # Safety: Only the corresponding cpu will access it.
 unsafe impl<Cpu> Sync for SafeRefCell<Cpu> {}
 
+impl<T> Deref for SafeRefCell<T> {
+    type Target = RefCell<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<T> SafeRefCell<T> {
-    const fn new(t: T) -> Self {
+    pub const fn new(t: T) -> Self {
         Self(RefCell::new(t))
     }
 }
