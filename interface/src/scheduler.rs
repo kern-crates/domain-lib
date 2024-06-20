@@ -1,14 +1,14 @@
 use alloc::vec::Vec;
 
 use downcast_rs::{impl_downcast, DowncastSync};
-use gproxy::proxy;
+use gproxy::{proxy, recoverable};
 use rref::RRef;
 use task_meta::TaskSchedulingInfo;
 
 use super::AlienResult;
 use crate::Basic;
 
-#[proxy(SchedulerDomainProxy)]
+#[proxy(SchedulerDomainProxy, RwLock)]
 pub trait SchedulerDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     /// add one task to scheduler

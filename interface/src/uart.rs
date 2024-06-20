@@ -5,7 +5,7 @@ use gproxy::proxy;
 
 use super::{AlienError, AlienResult};
 use crate::{Basic, DeviceBase};
-#[proxy(UartDomainProxy,Range<usize>)]
+#[proxy(UartDomainProxy,RwLock,Range<usize>)]
 pub trait UartDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     /// Write a character to the UART

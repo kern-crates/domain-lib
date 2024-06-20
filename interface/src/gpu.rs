@@ -7,7 +7,7 @@ use rref::RRefVec;
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
 
-#[proxy(GpuDomainProxy,Range<usize>)]
+#[proxy(GpuDomainProxy,RwLock,Range<usize>)]
 pub trait GpuDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     fn flush(&self) -> AlienResult<()>;

@@ -5,7 +5,7 @@ use rref::RRefVec;
 use super::AlienResult;
 use crate::Basic;
 
-#[proxy(EmptyDeviceDomainProxy)]
+#[proxy(EmptyDeviceDomainProxy, SRCU)]
 pub trait EmptyDeviceDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn read(&self, data: RRefVec<u8>) -> AlienResult<RRefVec<u8>>;

@@ -4,7 +4,7 @@ use gproxy::proxy;
 use super::AlienResult;
 use crate::Basic;
 
-#[proxy(SysCallDomainProxy)]
+#[proxy(SysCallDomainProxy, SRCU)]
 pub trait SysCallDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn call(&self, syscall_id: usize, args: [usize; 6]) -> AlienResult<isize>;

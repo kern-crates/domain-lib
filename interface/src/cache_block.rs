@@ -5,7 +5,7 @@ use rref::RRefVec;
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
 
-#[proxy(CacheBlkDomainProxy, String)]
+#[proxy(CacheBlkDomainProxy, RwLock, String)]
 pub trait CacheBlkDeviceDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, blk_domain_name: &str) -> AlienResult<()>;
     fn read(&self, offset: u64, buf: RRefVec<u8>) -> AlienResult<RRefVec<u8>>;

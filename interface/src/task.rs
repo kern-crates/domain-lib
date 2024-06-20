@@ -7,7 +7,7 @@ use rref::{RRef, RRefVec};
 
 use super::AlienResult;
 use crate::{vfs::InodeID, Basic};
-#[proxy(TaskDomainProxy)]
+#[proxy(TaskDomainProxy, RwLock)]
 pub trait TaskDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn trap_frame_virt_addr(&self) -> AlienResult<usize>;

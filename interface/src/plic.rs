@@ -6,7 +6,7 @@ use rref::RRefVec;
 
 use super::AlienResult;
 use crate::Basic;
-#[proxy(PLICDomainProxy,Range<usize>)]
+#[proxy(PLICDomainProxy,RwLock,Range<usize>)]
 pub trait PLICDomain: Basic + DowncastSync {
     fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     fn handle_irq(&self) -> AlienResult<()>;

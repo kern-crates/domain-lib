@@ -69,7 +69,7 @@ fn impl_empty_func_code(func: &TraitItemFn) -> TokenStream {
 
     attr.retain(|attr| {
         let path = attr.path();
-        !path.is_ident("recover") && !path.is_ident("no_check")
+        !path.is_ident("recoverable") && !path.is_ident("no_check")
     });
     let mut sig = func.sig.clone();
     sig.inputs.iter_mut().skip(1).for_each(|arg| {
@@ -113,4 +113,41 @@ fn impl_empty_func_code(func: &TraitItemFn) -> TokenStream {
             token
         }
     }
+}
+
+pub fn impl_empty_code(
+    trait_name: &Ident,
+    trait_def: ItemTrait,
+) -> (Ident, TokenStream, TokenStream) {
+    let func_vec = trait_def.items.clone();
+    let empty_ident = Ident::new(&format!("{}EmptyImpl", trait_name), trait_name.span());
+    let super_trait_empty_code = impl_empty_supertrait(empty_ident.clone(), trait_def);
+    let empty_func_code = impl_empty_func(func_vec.clone());
+    let def_code = quote!(
+        #[derive(Debug)]
+        struct #empty_ident;
+
+        impl #empty_ident{
+            pub fn new()->Self{
+                Self
+            }
+        }
+        #super_trait_empty_code
+        impl #trait_name for #empty_ident{
+            #(#empty_func_code)*
+        }
+    );
+    let impl_empty_ident = Ident::new(&format!("impl_empty_for_{}", trait_name), trait_name.span());
+
+    let impl_for_empty_code = quote!(
+        #[macro_export]
+        macro_rules! #impl_empty_ident {
+            ($name:ident) => {
+                impl #trait_name for $name{
+                    #(#empty_func_code)*
+                }
+            }
+        }
+    );
+    (empty_ident, def_code, impl_for_empty_code)
 }

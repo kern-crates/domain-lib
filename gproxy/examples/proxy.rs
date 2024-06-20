@@ -3,7 +3,7 @@ extern crate alloc;
 use core::sync::atomic::AtomicU64;
 use std::{fmt::Debug, ops::Range};
 
-use gproxy::{no_check, proxy, recover};
+use gproxy::{no_check, proxy, recoverable};
 use spin::{Mutex, Once, RwLock};
 #[derive(Debug)]
 pub enum AlienError {
@@ -24,7 +24,7 @@ pub trait DeviceBase {
     }
 }
 
-#[proxy(XXXDomainProxy)]
+#[proxy(XXXDomainProxy, RwLock)]
 pub trait XXXDomain: Basic + DeviceBase {
     fn init(&self) -> AlienResult<()>;
     #[no_check]
@@ -32,6 +32,7 @@ pub trait XXXDomain: Basic + DeviceBase {
     #[no_check]
     fn yyy(&self) -> AlienResult<()>;
 }
+
 #[derive(Debug)]
 pub struct DomainLoader {}
 

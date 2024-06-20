@@ -5,7 +5,7 @@ use rref::RRefVec;
 use super::AlienResult;
 use crate::Basic;
 
-#[proxy(LogDomainProxy)]
+#[proxy(LogDomainProxy, SRCU)]
 pub trait LogDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn log(&self, level: Level, msg: &RRefVec<u8>) -> AlienResult<()>;

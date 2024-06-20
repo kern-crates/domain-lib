@@ -13,7 +13,7 @@ use crate::{Basic, DeviceBase};
 
 pub type SocketID = usize;
 
-#[proxy(NetDomainProxy, String)]
+#[proxy(NetDomainProxy, RwLock, String)]
 pub trait NetDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, nic_domain_name: &str) -> AlienResult<()>;
     fn socket(&self, domain: Domain, ty: SocketType, protocol: usize) -> AlienResult<SocketID>;

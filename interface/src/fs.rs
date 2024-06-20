@@ -1,17 +1,18 @@
 use downcast_rs::{impl_downcast, DowncastSync};
-use gproxy::proxy;
+use gproxy::{proxy, recoverable};
 use rref::{RRef, RRefVec};
 use vfscore::{fstype::FileSystemFlags, inode::InodeAttr, superblock::SuperType, utils::*};
 
 use super::AlienResult;
 use crate::{Basic, DirEntryWrapper, InodeID};
 
-#[proxy(FsDomainProxy)]
+#[proxy(FsDomainProxy, RwLock)]
 pub trait FsDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn mount(&self, mp: &RRefVec<u8>, dev_inode: Option<InodeID>) -> AlienResult<InodeID>;
     fn drop_inode(&self, inode: InodeID) -> AlienResult<()>;
     // file operations
+    #[recoverable]
     fn read_at(
         &self,
         inode: InodeID,
@@ -78,7 +79,7 @@ pub trait FsDomain: Basic + DowncastSync {
 
 impl_downcast!(sync FsDomain);
 
-#[proxy(DevFsDomainProxy)]
+#[proxy(DevFsDomainProxy, RwLock)]
 pub trait DevFsDomain: FsDomain + DowncastSync {
     fn register(&self, rdev: u64, device_domain_name: &RRefVec<u8>) -> AlienResult<()>;
 }

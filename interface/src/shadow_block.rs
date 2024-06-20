@@ -5,7 +5,7 @@ use rref::RRef;
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
 
-#[proxy(ShadowBlockDomainProxy, String)]
+#[proxy(ShadowBlockDomainProxy, SRCU, String)]
 pub trait ShadowBlockDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, blk_domain: &str) -> AlienResult<()>;
     #[no_check]

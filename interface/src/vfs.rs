@@ -33,7 +33,7 @@ impl DirEntryWrapper {
         }
     }
 }
-#[proxy(VfsDomainProxy,Vec<u8>)]
+#[proxy(VfsDomainProxy,RwLock,Vec<u8>)]
 pub trait VfsDomain: Basic + DowncastSync {
     fn init(&self, initrd: &[u8]) -> AlienResult<()>;
     fn vfs_poll(&self, inode: InodeID, events: VfsPollEvents) -> AlienResult<VfsPollEvents>;

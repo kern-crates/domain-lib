@@ -4,7 +4,7 @@ use gproxy::proxy;
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
 
-#[proxy(BufInputDomainProxy, String)]
+#[proxy(BufInputDomainProxy, RwLock, String)]
 pub trait BufInputDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, input_domain_name: &str) -> AlienResult<()>;
     /// Read an input event from the input device

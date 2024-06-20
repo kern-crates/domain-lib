@@ -7,7 +7,7 @@ use rref::RRefVec;
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
 
-#[proxy(NetDeviceDomainProxy, Range<usize>)]
+#[proxy(NetDeviceDomainProxy,RwLock, Range<usize>)]
 pub trait NetDeviceDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, device_info: &Range<usize>) -> AlienResult<()>;
     /// The ethernet address of the NIC.

@@ -4,7 +4,7 @@ use gproxy::proxy;
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
 
-#[proxy(BufUartDomainProxy, String)]
+#[proxy(BufUartDomainProxy, RwLock, String)]
 pub trait BufUartDomain: DeviceBase + Basic + DowncastSync {
     fn init(&self, uart_domain_name: &str) -> AlienResult<()>;
     /// Write a character to the UART
