@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use downcast_rs::{impl_downcast, DowncastSync};
-use gproxy::{proxy, recoverable};
+use gproxy::proxy;
 use rref::RRef;
 use task_meta::TaskSchedulingInfo;
 

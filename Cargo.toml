@@ -9,6 +9,7 @@ members = [
     "ksync",
     "malloc",
     "rref",
+    "storage",
     "task_meta",
 ]
 
