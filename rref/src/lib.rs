@@ -117,6 +117,11 @@ impl SharedHeapAllocation {
     pub fn drop_fn(&self) {
         (self.drop_fn)(self.type_id, self.value_pointer);
     }
+    pub fn set_domain_id(&self, domain_id: u64) {
+        unsafe {
+            *self.domain_id_pointer = domain_id;
+        }
+    }
 }
 
 unsafe impl Send for SharedHeapAllocation {}

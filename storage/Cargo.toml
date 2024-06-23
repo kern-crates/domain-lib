@@ -6,3 +6,7 @@ edition = "2021"
 [dependencies]
 spin = "0"
 log = "0"
+
+
+[features]
+impl = []

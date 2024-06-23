@@ -75,6 +75,9 @@ where
         let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
         unsafe { Self::new_with_layout(value, layout) }
     }
+    pub fn domain_id(&self) -> u64 {
+        unsafe { *self.domain_id_pointer }
+    }
 }
 
 impl<T: RRefable> Deref for RRef<T> {
