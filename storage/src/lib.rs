@@ -19,6 +19,7 @@ pub trait DomainDataStorage: Send + Sync {
         value: Box<Arc<dyn Any + Send + Sync, DataStorageHeap>, DataStorageHeap>,
     ) -> Option<Box<Arc<dyn Any + Send + Sync, DataStorageHeap>, DataStorageHeap>>;
     fn get(&self, key: &str) -> Option<Arc<dyn Any + Send + Sync, DataStorageHeap>>;
+    fn remove(&self, key: &str) -> Option<Arc<dyn Any + Send + Sync, DataStorageHeap>>;
 }
 
 #[derive(Clone)]
@@ -110,6 +111,14 @@ mod __private {
                 arc
             }
         }
+    }
+
+    pub fn remove_data<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, DataStorageHeap>> {
+        let res = DATABASE.get().unwrap().remove(key).and_then(|arc_wrapper| {
+            let res = arc_wrapper.downcast::<T>().ok();
+            res
+        });
+        res
     }
 
     static DATABASE: Once<Box<dyn DomainDataStorage>> = Once::new();

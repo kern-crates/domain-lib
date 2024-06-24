@@ -46,18 +46,26 @@ pub struct TaskMeta {
 #[derive(Debug, Copy, Clone, Default)]
 pub struct TaskSchedulingInfo {
     pub tid: usize,
-    pub priority: usize,
+    pub nice: i8,
     // other information
     pub cpus_allowed: usize,
 }
 
 impl TaskSchedulingInfo {
-    pub const fn new(tid: usize, priority: usize, cpu_allowed: usize) -> Self {
+    pub const fn new(tid: usize, nice: i8, cpu_allowed: usize) -> Self {
         Self {
             tid,
-            priority,
+            nice,
             cpus_allowed: cpu_allowed,
         }
+    }
+
+    pub fn set_nice(&mut self, nice: i8) {
+        self.nice = nice;
+    }
+
+    pub fn nice(&self) -> i8 {
+        self.nice
     }
 }
 
@@ -132,6 +140,8 @@ pub enum TaskOperation {
     Remove(usize),
     Current,
     ExitOver(usize),
+    SetPriority(i8),
+    GetPriority,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -140,6 +150,7 @@ pub enum OperationResult {
     KstackTop(usize),
     Null,
     ExitOver(bool),
+    Priority(i8),
 }
 
 impl OperationResult {
@@ -160,6 +171,12 @@ impl OperationResult {
         match self {
             OperationResult::ExitOver(is_exit) => *is_exit,
             _ => panic!("OperationResult is not ExitOver"),
+        }
+    }
+    pub fn priority(&self) -> i8 {
+        match self {
+            OperationResult::Priority(priority) => *priority,
+            _ => panic!("OperationResult is not Priority"),
         }
     }
 }

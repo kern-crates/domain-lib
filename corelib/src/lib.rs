@@ -13,6 +13,9 @@ pub type AlienResult<T> = Result<T, LinuxErrno>;
 
 pub mod constants {
     pub use pconst::*;
+
+    use crate::AlienError;
+
     pub const AT_FDCWD: isize = -100isize;
     #[derive(Copy, Clone, Debug, Eq, PartialOrd, PartialEq, Hash, Ord)]
     pub struct DeviceId {
@@ -34,6 +37,33 @@ pub mod constants {
             Self {
                 major: (id >> 32) as u32,
                 minor: (id & 0xffffffff) as u32,
+            }
+        }
+    }
+    #[derive(Debug)]
+    pub enum PriorityTarget {
+        Process(u32),
+        ProcessGroup(u32),
+        User(u32),
+    }
+    #[allow(non_camel_case_types)]
+    #[derive(Clone, Debug)]
+    #[repr(i32)]
+    pub enum Which {
+        PRIO_PROCESS = 0,
+        PRIO_PGRP = 1,
+        PRIO_USER = 2,
+    }
+
+    impl TryFrom<i32> for Which {
+        type Error = AlienError;
+
+        fn try_from(value: i32) -> Result<Self, Self::Error> {
+            match value {
+                0 => Ok(Which::PRIO_PROCESS),
+                1 => Ok(Which::PRIO_PGRP),
+                2 => Ok(Which::PRIO_USER),
+                _ => Err(AlienError::EINVAL),
             }
         }
     }
@@ -220,6 +250,20 @@ mod core_impl {
             .get_must()
             .task_op(TaskOperation::ExitOver(tid))
             .map(|res| res.is_exit_over())
+    }
+
+    pub fn set_task_priority(priority: i8) -> AlienResult<()> {
+        CORE_FUNC
+            .get_must()
+            .task_op(TaskOperation::SetPriority(priority))?;
+        Ok(())
+    }
+
+    pub fn get_task_priority() -> AlienResult<i8> {
+        CORE_FUNC
+            .get_must()
+            .task_op(TaskOperation::GetPriority)
+            .map(|res| res.priority())
     }
 }
 

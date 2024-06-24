@@ -75,6 +75,8 @@ pub trait TaskDomain: Basic + DowncastSync {
     fn do_pipe2(&self, r: InodeID, w: InodeID, pipe: usize) -> AlienResult<isize>;
     fn do_exit(&self, exit_code: isize) -> AlienResult<isize>;
     fn do_mmap_device(&self, phy_addr_range: Range<usize>) -> AlienResult<isize>;
+    fn do_set_priority(&self, which: i32, who: u32, priority: i32) -> AlienResult<()>;
+    fn do_get_priority(&self, which: i32, who: u32) -> AlienResult<i32>;
 }
 
 #[derive(Debug, Default)]
