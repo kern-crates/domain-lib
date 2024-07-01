@@ -6,7 +6,6 @@ use vfscore::utils::{VfsFileStat, VfsNodeType, VfsPollEvents};
 
 use super::AlienResult;
 use crate::{Basic, SocketID};
-
 pub type InodeID = u64;
 pub const VFS_ROOT_ID: InodeID = 0;
 pub const VFS_STDIN_ID: InodeID = 1;
@@ -19,12 +18,12 @@ pub struct DirEntryWrapper {
     /// type is the file type
     pub ty: VfsNodeType,
     /// filename (null-terminated)
-    pub name: RRefVec<u8>,
+    pub name: [u8; 64],
     pub name_len: usize,
 }
 
 impl DirEntryWrapper {
-    pub fn new(name: RRefVec<u8>) -> Self {
+    pub fn new(name: [u8; 64]) -> Self {
         Self {
             ino: 0,
             ty: VfsNodeType::Unknown,

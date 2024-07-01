@@ -7,17 +7,15 @@ mod rref;
 mod rvec;
 
 extern crate alloc;
-
-use alloc::boxed::Box;
 use core::{
     alloc::Layout,
     any::{type_name_of_val, TypeId},
 };
 
+pub use custom_drop::CustomDrop as CustomDropOps;
 pub use rref::RRef;
 pub use rvec::RRefVec;
 use spin::Once;
-
 pub unsafe auto trait RRefable {}
 
 impl<T> !RRefable for *mut T {}
@@ -136,11 +134,11 @@ pub trait SharedHeapAlloc: Send + Sync {
     unsafe fn dealloc(&self, ptr: *mut u8);
 }
 
-static SHARED_HEAP: Once<Box<dyn SharedHeapAlloc>> = Once::new();
+static SHARED_HEAP: Once<&'static dyn SharedHeapAlloc> = Once::new();
 
 static CRATE_DOMAIN_ID: Once<u64> = Once::new();
 
-pub fn init(allocator: Box<dyn SharedHeapAlloc>, domain_id: u64) {
+pub fn init(allocator: &'static dyn SharedHeapAlloc, domain_id: u64) {
     SHARED_HEAP.call_once(|| allocator);
     CRATE_DOMAIN_ID.call_once(|| domain_id);
 }

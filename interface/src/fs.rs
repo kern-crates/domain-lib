@@ -1,5 +1,5 @@
 use downcast_rs::{impl_downcast, DowncastSync};
-use gproxy::{proxy, recoverable};
+use gproxy::proxy;
 use rref::{RRef, RRefVec};
 use vfscore::{fstype::FileSystemFlags, inode::InodeAttr, superblock::SuperType, utils::*};
 
@@ -10,9 +10,36 @@ use crate::{Basic, DirEntryWrapper, InodeID};
 pub trait FsDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn mount(&self, mp: &RRefVec<u8>, dev_inode: Option<InodeID>) -> AlienResult<InodeID>;
+    fn root_inode_id(&self) -> AlienResult<InodeID>;
     fn drop_inode(&self, inode: InodeID) -> AlienResult<()>;
+
+    fn dentry_name(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
+    fn dentry_path(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
+    /// The domain_ident is the domain name of the parent fs domain
+    fn dentry_set_parent(
+        &self,
+        inode: InodeID,
+        domain_ident: &RRefVec<u8>,
+        parent: InodeID,
+    ) -> AlienResult<()>;
+    fn dentry_parent(&self, inode: InodeID) -> AlienResult<Option<InodeID>>;
+
+    fn dentry_to_mount_point(
+        &self,
+        inode: InodeID,
+        domain_ident: &RRefVec<u8>,
+        mount_inode_id: InodeID,
+    ) -> AlienResult<()>;
+    fn dentry_mount_point(
+        &self,
+        inode: InodeID,
+        domain_ident: RRefVec<u8>,
+    ) -> AlienResult<Option<(RRefVec<u8>, InodeID)>>;
+    fn dentry_clear_mount_point(&self, inode: InodeID) -> AlienResult<()>;
+    fn dentry_find(&self, inode: InodeID, name: &RRefVec<u8>) -> AlienResult<Option<InodeID>>;
+    fn dentry_remove(&self, inode: InodeID, name: &RRefVec<u8>) -> AlienResult<()>;
+
     // file operations
-    #[recoverable]
     fn read_at(
         &self,
         inode: InodeID,

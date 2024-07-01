@@ -1,61 +1,47 @@
 #![feature(allocator_api)]
+#![feature(downcast_unchecked)]
 #![no_std]
 #![no_main]
 extern crate alloc;
 use alloc::{boxed::Box, sync::Arc};
-use core::{
-    alloc::{AllocError, Allocator, Layout},
-    any::Any,
-    ptr::NonNull,
-};
+use core::{alloc::Allocator, any::Any};
 
 use spin::Once;
-
 pub trait SendAllocator: Allocator + Send + Sync {}
+type ArcValueType = Arc<dyn Any + Send + Sync, DataStorageHeap>;
+
 pub trait DomainDataStorage: Send + Sync {
-    fn insert(
-        &self,
-        key: &str,
-        value: Box<Arc<dyn Any + Send + Sync, DataStorageHeap>, DataStorageHeap>,
-    ) -> Option<Box<Arc<dyn Any + Send + Sync, DataStorageHeap>, DataStorageHeap>>;
-    fn get(&self, key: &str) -> Option<Arc<dyn Any + Send + Sync, DataStorageHeap>>;
-    fn remove(&self, key: &str) -> Option<Arc<dyn Any + Send + Sync, DataStorageHeap>>;
+    fn insert(&self, key: &str, value: ArcValueType) -> Option<ArcValueType>;
+    fn get(&self, key: &str) -> Option<ArcValueType>;
+    fn remove(&self, key: &str) -> Option<ArcValueType>;
 }
 
-#[derive(Clone)]
-pub struct DataStorageHeap;
-
-unsafe impl Allocator for DataStorageHeap {
-    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        DATA_ALLOCATOR
-            .get()
-            .expect("allocate: data allocator not initialized")
-            .allocate(layout)
-    }
-
-    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
-        DATA_ALLOCATOR
-            .get()
-            .expect("deallocate: data allocator not initialized")
-            .deallocate(ptr, layout)
-    }
+pub trait StorageBuilder {
+    fn build() -> &'static dyn SendAllocator;
 }
 
-static DATA_ALLOCATOR: Once<Box<dyn SendAllocator>> = Once::new();
+pub type DataStorageHeap = &'static dyn SendAllocator;
+static DATA_ALLOCATOR: Once<DataStorageHeap> = Once::new();
 
-pub fn init_data_allocator(allocator: Box<dyn SendAllocator>) {
+pub fn init_data_allocator(allocator: &'static dyn SendAllocator) {
     DATA_ALLOCATOR.call_once(|| allocator);
     log::error!("init data allocator success");
 }
 
+impl StorageBuilder for DataStorageHeap {
+    fn build() -> &'static dyn SendAllocator {
+        *DATA_ALLOCATOR.get().unwrap()
+    }
+}
+
 #[allow(dead_code)]
 pub struct StorageArg {
-    pub allocator: Box<dyn SendAllocator>,
+    pub allocator: DataStorageHeap,
     pub storage: Box<dyn DomainDataStorage>,
 }
 
 impl StorageArg {
-    pub fn new(allocator: Box<dyn SendAllocator>, storage: Box<dyn DomainDataStorage>) -> Self {
+    pub fn new(allocator: DataStorageHeap, storage: Box<dyn DomainDataStorage>) -> Self {
         Self { allocator, storage }
     }
 }
@@ -67,31 +53,30 @@ mod __private {
 
     use spin::Once;
 
-    use crate::{DataStorageHeap, DomainDataStorage};
+    use crate::{DataStorageHeap, DomainDataStorage, StorageBuilder};
 
     pub fn insert_data<T: Any + Send + Sync>(
         key: &str,
         value: T,
     ) -> Option<Arc<T, DataStorageHeap>> {
-        let arc = Arc::new_in(value, DataStorageHeap);
-        let arc_wrapper: Box<Arc<dyn Any + Send + Sync, DataStorageHeap>, DataStorageHeap> =
-            Box::new_in(arc, DataStorageHeap);
-        let old = DATABASE.get().unwrap().insert(key, arc_wrapper);
+        let arc = Arc::new_in(value, DataStorageHeap::build());
+        let old = DATABASE.get().unwrap().insert(key, arc);
         let old_arc = match old {
-            Some(old) => {
-                let arc = *old;
-                arc.downcast::<T>().ok()
-            }
+            Some(arc) => Some(unsafe { arc.downcast_unchecked::<T>() }),
             None => None,
         };
         old_arc
     }
 
     pub fn get_data<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, DataStorageHeap>> {
-        let res = DATABASE.get().unwrap().get(key).and_then(|arc_wrapper| {
-            let res = arc_wrapper.downcast::<T>().ok();
-            res
-        });
+        let res = DATABASE
+            .get()
+            .unwrap()
+            .get(key)
+            .and_then(|arc_wrapper| unsafe {
+                let res = arc_wrapper.downcast_unchecked::<T>();
+                Some(res)
+            });
         res
     }
 
@@ -104,20 +89,37 @@ mod __private {
             Some(arc) => arc,
             None => {
                 let value = f();
-                let arc = Arc::new_in(value, DataStorageHeap);
-                let arc_wrapper: Box<Arc<dyn Any + Send + Sync, DataStorageHeap>, DataStorageHeap> =
-                    Box::new_in(arc.clone(), DataStorageHeap);
-                DATABASE.get().unwrap().insert(key, arc_wrapper);
+                let arc = Arc::new_in(value, DataStorageHeap::build());
+                DATABASE.get().unwrap().insert(key, arc.clone());
                 arc
             }
         }
     }
 
     pub fn remove_data<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, DataStorageHeap>> {
-        let res = DATABASE.get().unwrap().remove(key).and_then(|arc_wrapper| {
-            let res = arc_wrapper.downcast::<T>().ok();
-            res
-        });
+        let res = DATABASE
+            .get()
+            .unwrap()
+            .remove(key)
+            .and_then(|value| unsafe {
+                let strong_count = Arc::strong_count(&value);
+                log::error!("remove_data: {:?}, ref count: {}", key, strong_count);
+                assert!(strong_count >= 2);
+                let value = value.downcast_unchecked::<T>();
+                let value = if strong_count != 2 {
+                    // decrement strong count to 2
+                    let raw = Arc::into_raw(value);
+                    for _ in 0..(strong_count - 2) {
+                        Arc::decrement_strong_count_in(raw, DataStorageHeap::build());
+                    }
+                    Arc::from_raw_in(raw, DataStorageHeap::build())
+                } else {
+                    value
+                };
+                let strong_count = Arc::strong_count(&value);
+                log::error!("remove_data: {:?}, ref count: {}", key, strong_count);
+                Some(value)
+            });
         res
     }
 

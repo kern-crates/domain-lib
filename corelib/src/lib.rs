@@ -81,7 +81,11 @@ pub trait CoreFunction: Send + Sync {
     /// This func will be deleted
     fn blk_crash_trick(&self) -> bool;
     fn sys_get_domain(&self, name: &str) -> Option<DomainType>;
-    fn sys_create_domain(&self, identifier: &str) -> Option<DomainType>;
+    fn sys_create_domain(
+        &self,
+        domain_file_name: &str,
+        identifier: &mut [u8],
+    ) -> AlienResult<DomainType>;
     /// Register a new domain with the given name and type
     fn sys_register_domain(&self, ident: &str, ty: DomainTypeRaw, data: &[u8]) -> AlienResult<()>;
     /// Replace the old domain with the new domain
@@ -94,20 +98,19 @@ pub trait CoreFunction: Send + Sync {
     fn sys_reload_domain(&self, domain_name: &str) -> AlienResult<()>;
     fn vaddr_to_paddr_in_kernel(&self, vaddr: usize) -> AlienResult<usize>;
     fn task_op(&self, op: TaskOperation) -> AlienResult<OperationResult>;
+    fn checkout_shared_data(&self) -> AlienResult<()>;
 }
 
 #[cfg(feature = "core_impl")]
 mod core_impl {
-    use alloc::boxed::Box;
-
     use interface::{DomainType, DomainTypeRaw};
     use spin::Once;
     use task_meta::{TaskMeta, TaskOperation};
 
-    use super::{AlienResult, OnceGet};
+    use super::{AlienError, AlienResult, OnceGet};
     use crate::CoreFunction;
 
-    static CORE_FUNC: Once<Box<dyn CoreFunction>> = Once::new();
+    static CORE_FUNC: Once<&'static dyn CoreFunction> = Once::new();
 
     extern "C" {
         fn sbss();
@@ -123,7 +126,7 @@ mod core_impl {
         }
     }
 
-    pub fn init(syscall: Box<dyn CoreFunction>) {
+    pub fn init(syscall: &'static dyn CoreFunction) {
         clear_bss();
         CORE_FUNC.call_once(|| syscall);
     }
@@ -181,8 +184,16 @@ mod core_impl {
         CORE_FUNC.get_must().sys_get_domain(name)
     }
 
-    pub fn create_domain(identifier: &str) -> Option<DomainType> {
-        CORE_FUNC.get_must().sys_create_domain(identifier)
+    pub fn create_domain(
+        domain_file_name: &str,
+        domain_identifier: &mut [u8],
+    ) -> AlienResult<DomainType> {
+        if domain_identifier.len() < 32 {
+            return Err(AlienError::EINVAL);
+        }
+        CORE_FUNC
+            .get_must()
+            .sys_create_domain(domain_file_name, domain_identifier)
     }
 
     pub fn register_domain(ident: &str, ty: DomainTypeRaw, data: &[u8]) -> AlienResult<()> {
@@ -264,6 +275,10 @@ mod core_impl {
             .get_must()
             .task_op(TaskOperation::GetPriority)
             .map(|res| res.priority())
+    }
+
+    pub fn checkout_shared_data() -> AlienResult<()> {
+        CORE_FUNC.get_must().checkout_shared_data()
     }
 }
 
