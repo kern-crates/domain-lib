@@ -23,7 +23,10 @@ mod vfs;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::{any::Any, fmt::Debug};
+use core::{
+    any::Any,
+    fmt::{Debug, Display},
+};
 
 use pconst::LinuxErrno;
 
@@ -90,7 +93,35 @@ pub enum DomainType {
     LogDomain(Arc<dyn LogDomain>),
     NetDomain(Arc<dyn NetDomain>),
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+
+impl DomainType {
+    pub fn to_raw(&self) -> DomainTypeRaw {
+        match self {
+            DomainType::FsDomain(_) => DomainTypeRaw::FsDomain,
+            DomainType::BlkDeviceDomain(_) => DomainTypeRaw::BlkDeviceDomain,
+            DomainType::CacheBlkDeviceDomain(_) => DomainTypeRaw::CacheBlkDeviceDomain,
+            DomainType::RtcDomain(_) => DomainTypeRaw::RtcDomain,
+            DomainType::GpuDomain(_) => DomainTypeRaw::GpuDomain,
+            DomainType::InputDomain(_) => DomainTypeRaw::InputDomain,
+            DomainType::VfsDomain(_) => DomainTypeRaw::VfsDomain,
+            DomainType::UartDomain(_) => DomainTypeRaw::UartDomain,
+            DomainType::PLICDomain(_) => DomainTypeRaw::PLICDomain,
+            DomainType::TaskDomain(_) => DomainTypeRaw::TaskDomain,
+            DomainType::SysCallDomain(_) => DomainTypeRaw::SysCallDomain,
+            DomainType::ShadowBlockDomain(_) => DomainTypeRaw::ShadowBlockDomain,
+            DomainType::BufUartDomain(_) => DomainTypeRaw::BufUartDomain,
+            DomainType::NetDeviceDomain(_) => DomainTypeRaw::NetDeviceDomain,
+            DomainType::BufInputDomain(_) => DomainTypeRaw::BufInputDomain,
+            DomainType::EmptyDeviceDomain(_) => DomainTypeRaw::EmptyDeviceDomain,
+            DomainType::DevFsDomain(_) => DomainTypeRaw::DevFsDomain,
+            DomainType::SchedulerDomain(_) => DomainTypeRaw::SchedulerDomain,
+            DomainType::LogDomain(_) => DomainTypeRaw::LogDomain,
+            DomainType::NetDomain(_) => DomainTypeRaw::NetDomain,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum DomainTypeRaw {
     FsDomain = 1,
     BlkDeviceDomain = 2,
@@ -112,6 +143,33 @@ pub enum DomainTypeRaw {
     SchedulerDomain = 18,
     LogDomain = 19,
     NetDomain = 20,
+}
+
+impl Display for DomainTypeRaw {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DomainTypeRaw::FsDomain => write!(f, "FsDomain"),
+            DomainTypeRaw::BlkDeviceDomain => write!(f, "BlkDeviceDomain"),
+            DomainTypeRaw::CacheBlkDeviceDomain => write!(f, "CacheBlkDeviceDomain"),
+            DomainTypeRaw::RtcDomain => write!(f, "RtcDomain"),
+            DomainTypeRaw::GpuDomain => write!(f, "GpuDomain"),
+            DomainTypeRaw::InputDomain => write!(f, "InputDomain"),
+            DomainTypeRaw::VfsDomain => write!(f, "VfsDomain"),
+            DomainTypeRaw::UartDomain => write!(f, "UartDomain"),
+            DomainTypeRaw::PLICDomain => write!(f, "PLICDomain"),
+            DomainTypeRaw::TaskDomain => write!(f, "TaskDomain"),
+            DomainTypeRaw::SysCallDomain => write!(f, "SysCallDomain"),
+            DomainTypeRaw::ShadowBlockDomain => write!(f, "ShadowBlockDomain"),
+            DomainTypeRaw::BufUartDomain => write!(f, "BufUartDomain"),
+            DomainTypeRaw::NetDeviceDomain => write!(f, "NetDeviceDomain"),
+            DomainTypeRaw::BufInputDomain => write!(f, "BufInputDomain"),
+            DomainTypeRaw::EmptyDeviceDomain => write!(f, "EmptyDeviceDomain"),
+            DomainTypeRaw::DevFsDomain => write!(f, "DevFsDomain"),
+            DomainTypeRaw::SchedulerDomain => write!(f, "SchedulerDomain"),
+            DomainTypeRaw::LogDomain => write!(f, "LogDomain"),
+            DomainTypeRaw::NetDomain => write!(f, "NetDomain"),
+        }
+    }
 }
 
 impl TryFrom<u8> for DomainTypeRaw {

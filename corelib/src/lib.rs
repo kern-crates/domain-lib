@@ -1,12 +1,17 @@
 #![no_std]
 extern crate alloc;
 
+use alloc::sync::Arc;
+use core::any::Any;
+
 #[cfg(feature = "core_impl")]
 pub use core_impl::*;
 use interface::{DomainType, DomainTypeRaw};
 use pconst::LinuxErrno;
 use spin::Once;
 use task_meta::{OperationResult, TaskOperation};
+
+pub mod domain_info;
 
 pub type AlienError = LinuxErrno;
 pub type AlienResult<T> = Result<T, LinuxErrno>;
@@ -99,10 +104,15 @@ pub trait CoreFunction: Send + Sync {
     fn vaddr_to_paddr_in_kernel(&self, vaddr: usize) -> AlienResult<usize>;
     fn task_op(&self, op: TaskOperation) -> AlienResult<OperationResult>;
     fn checkout_shared_data(&self) -> AlienResult<()>;
+
+    fn domain_info(&self) -> AlienResult<Arc<dyn Any + Send + Sync>>;
 }
 
 #[cfg(feature = "core_impl")]
 mod core_impl {
+    use alloc::sync::Arc;
+    use core::any::Any;
+
     use interface::{DomainType, DomainTypeRaw};
     use spin::Once;
     use task_meta::{TaskMeta, TaskOperation};
@@ -279,6 +289,10 @@ mod core_impl {
 
     pub fn checkout_shared_data() -> AlienResult<()> {
         CORE_FUNC.get_must().checkout_shared_data()
+    }
+
+    pub fn domain_info() -> AlienResult<Arc<dyn Any + Send + Sync>> {
+        CORE_FUNC.get_must().domain_info()
     }
 }
 
