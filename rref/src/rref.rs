@@ -19,7 +19,6 @@ where
     T: 'static + RRefable,
 {
     domain_id_pointer: *mut u64,
-    borrow_count_pointer: *mut u64,
     value_pointer: *mut T,
 }
 
@@ -58,11 +57,9 @@ where
         };
         let value_pointer = allocation.value_pointer as *mut T;
         *allocation.domain_id_pointer = crate::domain_id();
-        *allocation.borrow_count_pointer = 0;
         core::ptr::write(value_pointer, value);
         RRef {
             domain_id_pointer: allocation.domain_id_pointer,
-            borrow_count_pointer: allocation.borrow_count_pointer,
             value_pointer,
         }
     }
@@ -113,11 +110,9 @@ impl<T: RRefable + Debug> Debug for RRef<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let value = unsafe { &*self.value_pointer };
         let domain_id = unsafe { *self.domain_id_pointer };
-        let borrow_count = unsafe { *self.borrow_count_pointer };
         f.debug_struct("RRef")
             .field("value", value)
             .field("domain_id", &domain_id)
-            .field("borrow_count", &borrow_count)
             .finish()
     }
 }

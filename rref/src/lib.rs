@@ -102,7 +102,6 @@ impl_shared_data!((0, T), (1, T), (2, T), (3, T), (4, T), (5, T), (6, T));
 pub struct SharedHeapAllocation {
     pub value_pointer: *mut u8,
     pub domain_id_pointer: *mut u64,
-    pub borrow_count_pointer: *mut u64,
     pub layout: Layout,
     pub type_id: TypeId,
     pub drop_fn: fn(TypeId, *mut u8),
