@@ -54,6 +54,10 @@ impl SafeIORegion {
         self.range.start
     }
 
+    pub fn phys_addr_range(&self) -> Range<PhysAddr> {
+        self.range.clone()
+    }
+
     pub fn virt_addr(&self) -> VirtAddr {
         VirtAddr::from(self.range.start.as_usize())
     }

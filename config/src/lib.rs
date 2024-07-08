@@ -1,10 +1,16 @@
 //! 配置文件
 #![no_std]
 
-#[cfg(feature = "qemu_riscv")]
+#[cfg(qemu_riscv)]
 mod qemu_riscv;
-#[cfg(feature = "qemu_riscv")]
+#[cfg(vf2)]
+mod vf2;
+
+#[cfg(qemu_riscv)]
 pub use qemu_riscv::*;
+#[cfg(vf2)]
+pub use vf2::*;
+
 /// Alien os的标志
 pub const ALIEN_FLAG: &str = r"
      _      _   _
