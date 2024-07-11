@@ -2,6 +2,7 @@ use core::ops::Range;
 
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
+use rref::RRefVec;
 
 use super::{AlienError, AlienResult};
 use crate::{Basic, DeviceBase};
@@ -12,6 +13,8 @@ pub trait UartDomain: DeviceBase + Basic + DowncastSync {
     fn putc(&self, ch: u8) -> AlienResult<()>;
     /// Read a character from the UART
     fn getc(&self) -> AlienResult<Option<u8>>;
+
+    fn put_bytes(&self, buf: &RRefVec<u8>) -> AlienResult<usize>;
     /// Check if there is data to get from the UART
     fn have_data_to_get(&self) -> AlienResult<bool>;
     /// Check if there is space to put data to the UART

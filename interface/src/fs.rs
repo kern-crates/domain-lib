@@ -9,7 +9,7 @@ use crate::{Basic, DirEntryWrapper, InodeID};
 #[proxy(FsDomainProxy, RwLock)]
 pub trait FsDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
-    fn mount(&self, mp: &RRefVec<u8>, dev_inode: Option<InodeID>) -> AlienResult<InodeID>;
+    fn mount(&self, mp: &RRefVec<u8>, dev_inode: Option<RRef<MountInfo>>) -> AlienResult<InodeID>;
     fn root_inode_id(&self) -> AlienResult<InodeID>;
     fn drop_inode(&self, inode: InodeID) -> AlienResult<()>;
 
@@ -112,3 +112,8 @@ pub trait DevFsDomain: FsDomain + DowncastSync {
 }
 
 impl_downcast!(sync DevFsDomain);
+
+pub struct MountInfo {
+    pub mount_inode_id: InodeID,
+    pub domain_ident: [u8; 32],
+}
