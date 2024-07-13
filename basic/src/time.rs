@@ -1,12 +1,12 @@
 use config::CLOCK_FREQ;
 use pconst::time::{TimeSpec, TimeVal};
-
+#[inline]
 pub fn read_time_ms() -> u64 {
     get_time_ms()
 }
 
 #[inline]
-fn read_timer() -> usize {
+pub fn read_timer() -> usize {
     arch::read_timer()
 }
 
