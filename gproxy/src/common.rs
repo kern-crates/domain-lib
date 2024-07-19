@@ -9,6 +9,7 @@ pub struct ResourceCode {
     pub resource_init: TokenStream,
     pub cast: TokenStream,
     pub call_once: TokenStream,
+    pub replace_call: TokenStream,
 }
 
 pub fn resource_code(proxy: &Proxy) -> ResourceCode {
@@ -19,7 +20,7 @@ pub fn resource_code(proxy: &Proxy) -> ResourceCode {
     } else {
         quote!()
     };
-    let (resource_init, cast, call_once) = if proxy.source.is_some() {
+    let (resource_init, cast, call_once, replace_call) = if proxy.source.is_some() {
         let s1 = quote! (
             resource: Once::new()
         );
@@ -31,19 +32,30 @@ pub fn resource_code(proxy: &Proxy) -> ResourceCode {
         let s3 = quote! (
             self.resource.call_once(|| argv);
         );
-        (s1, s2, s3)
+
+        let s4 = quote! (
+            let resource = self.resource.get().unwrap();
+            let info = resource.as_ref().downcast_ref::<#s_ty>().unwrap();
+            new_domain.init(info).unwrap();
+        );
+
+        (s1, s2, s3, s4)
     } else {
         let s2 = quote!(
             let _ = argv;
             self.init()?;
         );
-        (quote!(), s2, quote!())
+        let s4 = quote! (
+            new_domain.init().unwrap();
+        );
+        (quote!(), s2, quote!(), s4)
     };
     ResourceCode {
         resource_field,
         resource_init,
         cast,
         call_once,
+        replace_call,
     }
 }
 

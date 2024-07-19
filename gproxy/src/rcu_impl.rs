@@ -33,7 +33,10 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
         resource_init,
         cast,
         call_once,
+        replace_call,
     } = resource_code(&proxy);
+
+    let prox_ext_impl = impl_prox_ext_trait(&ident, replace_call, trait_name);
 
     quote::quote!(
         #[macro_export]
@@ -54,6 +57,9 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                             domain_loader: Mutex::new(domain_loader),
                             #resource_init
                         }
+                    }
+                    pub fn domain_loader(&self) -> DomainLoader{
+                        self.domain_loader.lock().clone()
                     }
                 }
 
@@ -80,6 +86,8 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                     #(#func_code)*
                 }
 
+                #prox_ext_impl
+
                 #(#extern_func_code)*
 
                 #empty_def_code
@@ -99,6 +107,40 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
 
     )
     .into()
+}
+
+fn impl_prox_ext_trait(
+    proxy_name: &Ident,
+    replace_call: TokenStream,
+    trait_name: &Ident,
+) -> TokenStream {
+    quote!(
+        impl #proxy_name{
+             pub fn replace(&self,new_domain: Box<dyn #trait_name>,loader:DomainLoader) -> AlienResult<()> {
+                let mut loader_guard = self.domain_loader.lock();
+                let old_id = self.domain_id();
+
+                // init the new domain before swap
+                #replace_call
+
+                 let old_domain = self.domain.swap(Box::new(new_domain));
+                // synchronize the reader which is reading the old domain
+                // println!("srcu synchronize");
+                self.srcu_lock.synchronize();
+                // println!("srcu synchronize end");
+
+                // forget the old domain
+                // it will be dropped by the `free_domain_resource`
+                let real_domain = Box::into_inner(old_domain);
+                forget(real_domain);
+
+                free_domain_resource(old_id, FreeShared::Free);
+                *loader_guard = loader;
+
+                Ok(())
+            }
+        }
+    )
 }
 
 fn impl_func(

@@ -18,7 +18,9 @@ pub fn impl_supertrait(ident: Ident, trait_def: ItemTrait, sync_ty: SyncType) ->
                         "DeviceBase" => {
                             let (ext_code, inner_code) = match sync_ty {
                                 SyncType::SRCU => (quote!(), impl_srcu_code()),
-                                SyncType::RWLOCK => (impl_lock_code(&ident), impl_rwlock_code()),
+                                SyncType::RWLOCK => {
+                                    (impl_lock_code(&ident), impl_rwlock_code(&ident))
+                                }
                             };
 
                             let device_base = quote!(
@@ -70,15 +72,18 @@ fn impl_srcu_code() -> TokenStream {
     )
 }
 
-fn impl_rwlock_code() -> TokenStream {
+fn impl_rwlock_code(ident: &Ident) -> TokenStream {
+    let upper_ident = Ident::new(
+        &format!("{}_KEY", ident.to_string().to_uppercase()),
+        ident.span(),
+    );
     quote!(
-        if self.is_updating() {
+        if static_branch_likely!(#upper_ident) {
             return self.__handle_irq_with_lock();
         }
         self.__handle_irq_no_lock()
     )
 }
-
 fn impl_lock_code(ident: &Ident) -> TokenStream {
     quote!(
         impl #ident{

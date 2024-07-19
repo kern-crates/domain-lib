@@ -34,15 +34,23 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
         resource_init,
         cast,
         call_once,
+        replace_call,
     } = resource_code(&proxy);
+
+    let ident_key = Ident::new(
+        &format!("{}_KEY", ident.to_string().to_uppercase()),
+        trait_name.span(),
+    );
+
+    let prox_ext_impl = impl_prox_ext_trait(&ident, replace_call, trait_name);
 
     quote::quote!(
         #[macro_export]
         macro_rules! #macro_ident {
             () => {
+                define_static_key_false!(#ident_key);
                 #[derive(Debug)]
                 pub struct #ident{
-                    in_updating: AtomicBool,
                     domain: RcuData<Box<dyn #trait_name>>,
                     lock: RwLock<()>,
                     domain_loader: SleepMutex<DomainLoader>,
@@ -52,7 +60,6 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                 impl #ident{
                     pub fn new(domain: Box<dyn #trait_name>,domain_loader: DomainLoader)->Self{
                         Self{
-                            in_updating: AtomicBool::new(false),
                             domain: RcuData::new(Box::new(domain)),
                             lock: RwLock::new(()),
                             domain_loader: SleepMutex::new(domain_loader),
@@ -60,12 +67,13 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                             #resource_init
                         }
                     }
-                    pub fn is_updating(&self) -> bool {
-                        self.in_updating.load(core::sync::atomic::Ordering::Relaxed)
-                    }
 
                     pub fn all_counter(&self) -> usize {
                         self.counter.all()
+                    }
+
+                     pub fn domain_loader(&self) -> DomainLoader{
+                        self.domain_loader.lock().clone()
                     }
                 }
 
@@ -96,6 +104,8 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
                     #(#inner_call_code)*
                 }
 
+                #prox_ext_impl
+
                 #(#extern_func_code)*
 
 
@@ -120,6 +130,56 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
 
     )
     .into()
+}
+
+fn impl_prox_ext_trait(
+    proxy_name: &Ident,
+    replace_call: TokenStream,
+    trait_name: &Ident,
+) -> TokenStream {
+    let code = quote!(
+        impl #proxy_name{
+            pub fn replace(&self,new_domain: Box<dyn #trait_name>,loader:DomainLoader) -> AlienResult<()> {
+                // stage1: get the sleep lock and change to updating state
+                let mut loader_guard = self.domain_loader.lock();
+                k_static_branch_enable!(BLKDOMAINPROXY_KEY);
+
+                // why we need to synchronize_sched here?
+                synchronize_sched();
+
+                // stage2: get the write lock and wait for all readers to finish
+                let w_lock = self.lock.write();
+                // wait if there are readers which are reading the old domain but no read lock
+                while self.all_counter() > 0 {
+                    println!("Wait for all reader to finish");
+                    yield_now();
+                }
+
+                let old_id = self.domain_id();
+
+                // stage3: init the new domain before swap
+                let new_domain_id = new_domain.domain_id();
+                #replace_call
+
+                // stage4: swap the domain and change to normal state
+                let old_domain = self.domain.swap(Box::new(new_domain));
+                // change to normal state
+                k_static_branch_disable!(BLKDOMAINPROXY_KEY);
+
+                // stage5: recycle all resources
+                let real_domain = Box::into_inner(old_domain);
+                forget(real_domain);
+                free_domain_resource(old_id, FreeShared::NotFree(new_domain_id));
+
+                // stage6: release all locks
+                *loader_guard = loader;
+                drop(w_lock);
+                drop(loader_guard);
+                Ok(())
+            }
+        }
+    );
+    code
 }
 
 fn impl_func(
@@ -232,8 +292,12 @@ fn gen_trampoline_rwlock(
         &info,
     );
 
+    let ident_key = Ident::new(
+        &format!("{}_KEY", proxy_name.to_string().to_uppercase()),
+        proxy_name.span(),
+    );
     let call = quote!(
-        if self.is_updating() {
+        if static_branch_likely!(#ident_key) {
             return self.#__ident_with_lock(#(#input_argv),*);
         }
         self.#__ident_no_lock(#(#input_argv),*)
