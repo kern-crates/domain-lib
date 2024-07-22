@@ -5,7 +5,7 @@ use syn::{FnArg, ItemTrait, ReturnType, TraitItem, TraitItemFn};
 use crate::{
     common::{
         collect_func_info, gen_trampoline_info, resource_code, FuncInfo, ResourceCode,
-        TrampolineInfo,
+        TrampolineArg, TrampolineInfo,
     },
     empty_impl::impl_empty_code,
     super_trait::impl_supertrait,
@@ -17,9 +17,9 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
     let func_vec = trait_def.items.clone();
 
     let ident = proxy.ident.clone();
-    let super_trait_code = impl_supertrait(ident.clone(), trait_def.clone(), SyncType::RWLOCK);
+    let super_trait_code = impl_supertrait(ident.clone(), trait_def.clone(), SyncType::Rwlock);
 
-    let (func_code, other) = impl_func(func_vec, &trait_name, &ident, proxy.source.is_some());
+    let (func_code, other) = impl_func(func_vec, trait_name, &ident, proxy.source.is_some());
 
     let extern_func_code = other[0].clone();
     let inner_call_code = other[1].clone();
@@ -129,7 +129,6 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
         #empty_impl_for_code
 
     )
-    .into()
 }
 
 fn impl_prox_ext_trait(
@@ -193,7 +192,7 @@ fn impl_func(
     func_vec.iter().for_each(|item| match item {
         TraitItem::Fn(method) => {
             let (func_code, extern_asm_code, inner_call_code) =
-                impl_func_code_rwlock(&method, trait_name, proxy_name, has_resource);
+                impl_func_code_rwlock(method, trait_name, proxy_name, has_resource);
             func_codes.push(func_code);
             extern_func_codes[0].push(extern_asm_code);
             extern_func_codes[1].push(inner_call_code);
@@ -225,7 +224,7 @@ fn impl_func_code_rwlock(
 
     match func_name.to_string().as_str() {
         "init" => {
-            if input_argv.len() > 0 {
+            if !input_argv.is_empty() {
                 assert_eq!(input_argv.len(), 1);
             }
             let token = quote!(
@@ -237,7 +236,7 @@ fn impl_func_code_rwlock(
             (token, quote!(), quote!())
         }
         _ => {
-            let (func_inner, trampoline, inner_call) = gen_trampoline_rwlock(
+            let (func_inner, trampoline, inner_call) = gen_trampoline_rwlock(TrampolineArg {
                 has_recovery,
                 trait_name,
                 proxy_name,
@@ -245,9 +244,9 @@ fn impl_func_code_rwlock(
                 input_argv,
                 fn_args,
                 arg_domain_change,
-                output,
+                out_put: output,
                 no_check,
-            );
+            });
 
             let token = quote!(
                 #(#attr)*
@@ -260,17 +259,19 @@ fn impl_func_code_rwlock(
     }
 }
 
-fn gen_trampoline_rwlock(
-    has_recover: bool,
-    trait_name: &Ident,
-    proxy_name: &Ident,
-    func_name: Ident,
-    input_argv: Vec<Ident>,
-    fn_args: Vec<FnArg>,
-    arg_domain_change: Vec<TokenStream>,
-    out_put: ReturnType,
-    no_check: bool,
-) -> (TokenStream, TokenStream, TokenStream) {
+fn gen_trampoline_rwlock(arg: TrampolineArg) -> (TokenStream, TokenStream, TokenStream) {
+    let TrampolineArg {
+        has_recovery,
+        trait_name,
+        proxy_name,
+        func_name,
+        input_argv,
+        fn_args,
+        arg_domain_change,
+        out_put,
+        no_check,
+    } = arg;
+
     let info = gen_trampoline_info(
         proxy_name,
         &func_name,
@@ -281,10 +282,8 @@ fn gen_trampoline_rwlock(
     );
 
     let (asm_code, inner_call_code, __ident_no_lock, __ident_with_lock) = impl_inner_code(
-        has_recover,
-        proxy_name,
-        &func_name,
-        &trait_name,
+        has_recovery,
+        (&func_name, trait_name),
         &fn_args,
         &input_argv,
         out_put,
@@ -308,15 +307,14 @@ fn gen_trampoline_rwlock(
 
 fn impl_inner_code(
     has_recover: bool,
-    _proxy_name: &Ident,
-    func_name: &Ident,
-    trait_name: &Ident,
+    func_trait_name: (&Ident, &Ident),
     fn_argv: &Vec<FnArg>,
     input_argv: &Vec<Ident>,
     output: ReturnType,
     arg_domain_change: &Vec<TokenStream>,
     info: &TrampolineInfo,
 ) -> (TokenStream, TokenStream, Ident, Ident) {
+    let (func_name, trait_name) = func_trait_name;
     let __ident = Ident::new(&format!("__{}", func_name), func_name.span());
     let __ident_no_lock = Ident::new(&format!("__{}_no_lock", func_name), func_name.span());
     let __ident_with_lock = Ident::new(&format!("__{}_with_lock", func_name), func_name.span());

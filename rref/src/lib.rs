@@ -16,6 +16,10 @@ pub use custom_drop::CustomDrop as CustomDropOps;
 pub use rref::RRef;
 pub use rvec::RRefVec;
 use spin::Once;
+/// A trait for types that can be shared between domains.
+///
+/// # Safety
+/// This trait is unsafe because it is not safe to share all types between domains.
 pub unsafe auto trait RRefable {}
 
 impl<T> !RRefable for *mut T {}
@@ -124,12 +128,22 @@ impl SharedHeapAllocation {
 unsafe impl Send for SharedHeapAllocation {}
 
 pub trait SharedHeapAlloc: Send + Sync {
+    /// Allocates a new heap allocation with the given layout, type_id, and drop function.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the layout is valid and that the drop function is correct.
     unsafe fn alloc(
         &self,
         layout: Layout,
         type_id: TypeId,
         drop_fn: fn(TypeId, *mut u8),
     ) -> Option<SharedHeapAllocation>;
+    /// Deallocates the heap allocation at the given pointer.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the pointer is valid and that the allocation was not already deallocated.
     unsafe fn dealloc(&self, ptr: *mut u8);
 }
 
@@ -150,7 +164,7 @@ pub fn share_heap_alloc(
     unsafe { SHARED_HEAP.get_unchecked().alloc(layout, type_id, drop_fn) }
 }
 
-pub fn share_heap_dealloc(ptr: *mut u8) {
+pub(crate) fn share_heap_dealloc(ptr: *mut u8) {
     unsafe { SHARED_HEAP.get_unchecked().dealloc(ptr) }
 }
 

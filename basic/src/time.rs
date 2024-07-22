@@ -26,7 +26,7 @@ pub trait TimeNow {
 
 impl ToClock for TimeSpec {
     fn to_clock(&self) -> usize {
-        self.tv_sec * CLOCK_FREQ + self.tv_nsec * CLOCK_FREQ / 1000_000_000
+        self.tv_sec * CLOCK_FREQ + self.tv_nsec * CLOCK_FREQ / 1_000_000_000
     }
 }
 

@@ -31,7 +31,8 @@ pub fn drop_no_type<T: CustomDrop>(ptr: *mut u8) {
     unsafe { &mut *ptr }.custom_drop();
 }
 
-static DROP: Mutex<BTreeMap<TypeId, fn(ptr: *mut u8)>> = Mutex::new(BTreeMap::new());
+type DropFn = fn(ptr: *mut u8);
+static DROP: Mutex<BTreeMap<TypeId, DropFn>> = Mutex::new(BTreeMap::new());
 
 pub fn drop_domain_share_data(id: TypeId, ptr: *mut u8) {
     let drop = DROP.lock();
@@ -43,12 +44,10 @@ impl<T: RRefable> RRef<T>
 where
     T: TypeIdentifiable,
 {
-    pub unsafe fn new_with_layout(value: T, layout: Layout) -> RRef<T> {
+    pub(crate) unsafe fn new_with_layout(value: T, layout: Layout) -> RRef<T> {
         let type_id = T::type_id();
         let mut drop_guard = DROP.lock();
-        if !drop_guard.contains_key(&type_id) {
-            drop_guard.insert(type_id, drop_no_type::<T>);
-        }
+        drop_guard.entry(type_id).or_insert(drop_no_type::<T>);
         drop(drop_guard);
 
         let allocation = match crate::share_heap_alloc(layout, type_id, drop_domain_share_data) {

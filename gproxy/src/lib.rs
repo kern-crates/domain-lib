@@ -14,8 +14,8 @@ use syn::{
 use crate::{rcu_impl::def_struct_rcu, rwlock_impl::def_struct_rwlock};
 
 enum SyncType {
-    SRCU,
-    RWLOCK,
+    Srcu,
+    Rwlock,
 }
 
 struct Proxy {
@@ -29,7 +29,7 @@ impl Parse for Proxy {
         let ident = input.parse()?;
         let _comma: Token![,] = input.parse()?;
         let sync: Ident = input.parse()?;
-        if sync.to_string() != "SRCU" && sync.to_string() != "RwLock" {
+        if sync != "SRCU" && sync != "RwLock" {
             return Err(syn::Error::new(
                 sync.span(),
                 "sync type must be SRCU or RwLock",

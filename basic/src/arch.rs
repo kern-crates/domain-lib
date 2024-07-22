@@ -17,6 +17,7 @@ impl<T> CpuLocal<T> {
         Self(UnsafeCell::new(value))
     }
 
+    #[allow(clippy::mut_from_ref)]
     pub fn as_mut(&self) -> &mut T {
         unsafe { &mut *self.0.get() }
     }

@@ -6,54 +6,50 @@ pub fn impl_empty_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream 
     let supertraits = trait_def.supertraits.clone();
     let mut code = vec![];
     for supertrait in supertraits {
-        match supertrait {
-            TypeParamBound::Trait(trait_bound) => {
-                let path = trait_bound.path.clone();
-                let segments = path.segments;
-                for segment in segments {
-                    let trait_name = segment.ident.clone();
-                    match trait_name.to_string().as_str() {
-                        "DeviceBase" => {
-                            let device_base = quote!(
-                                impl DeviceBase for #ident{
-                                    fn handle_irq(&self)->AlienResult<()>{
-                                        Err(AlienError::ENOSYS)
-                                    }
+        if let TypeParamBound::Trait(trait_bound) = supertrait {
+            let path = trait_bound.path.clone();
+            let segments = path.segments;
+            for segment in segments {
+                let trait_name = segment.ident.clone();
+                match trait_name.to_string().as_str() {
+                    "DeviceBase" => {
+                        let device_base = quote!(
+                            impl DeviceBase for #ident{
+                                fn handle_irq(&self)->AlienResult<()>{
+                                    Err(AlienError::ENOSYS)
                                 }
-                            );
-                            code.push(device_base)
-                        }
-                        "Basic" => {
-                            let basic = quote!(
-                                impl Basic for #ident{
-                                    fn is_active(&self)->bool{
-                                        false
-                                    }
-                                    fn domain_id(&self)->u64{
-                                        u64::MAX
-                                    }
-                                }
-                            );
-                            code.push(basic)
-                        }
-                        _ => {}
+                            }
+                        );
+                        code.push(device_base)
                     }
+                    "Basic" => {
+                        let basic = quote!(
+                            impl Basic for #ident{
+                                fn is_active(&self)->bool{
+                                    false
+                                }
+                                fn domain_id(&self)->u64{
+                                    u64::MAX
+                                }
+                            }
+                        );
+                        code.push(basic)
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
     quote::quote!(
         #(#code)*
     )
-    .into()
 }
 
 pub fn impl_empty_func(func_vec: Vec<TraitItem>) -> Vec<TokenStream> {
     let mut func_codes = vec![];
     func_vec.iter().for_each(|item| match item {
         TraitItem::Fn(method) => {
-            let func_code = impl_empty_func_code(&method);
+            let func_code = impl_empty_func_code(method);
             func_codes.push(func_code);
         }
         _ => {

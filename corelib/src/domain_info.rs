@@ -3,7 +3,7 @@ use core::fmt::Display;
 
 use interface::DomainTypeRaw;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DomainInfo {
     pub ty_list: BTreeMap<DomainTypeRaw, Vec<DomainFileInfo>>,
     pub domain_list: BTreeMap<String, DomainDataInfo>,

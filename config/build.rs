@@ -14,13 +14,13 @@ fn main() {
                 new_config.push_str(cpus.as_str());
             } else {
                 new_config.push_str(line);
-                new_config.push_str("\n");
+                new_config.push('\n');
             }
         }
         fs::write(config_file, new_config).unwrap();
     }
 
-    println!("cargo:rerun-if-changed={}", "src/lib.rs");
+    println!("cargo:rerun-if-changed=src/lib.rs");
     let platform = option_env!("PLATFORM").unwrap_or("qemu_riscv");
     println!("cargo::rustc-cfg={}", platform);
 }

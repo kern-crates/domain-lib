@@ -28,6 +28,7 @@ where
         vec.as_mut_slice().fill(initial_value);
         vec
     }
+    #[allow(clippy::uninit_assumed_init)]
     pub fn from_slice(slice: &[T]) -> Self {
         let size = slice.len();
         let layout = Layout::array::<T>(size).unwrap();
@@ -49,6 +50,10 @@ where
     }
     pub fn len(&self) -> usize {
         self.size
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
     }
 }
 

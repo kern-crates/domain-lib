@@ -72,23 +72,14 @@ pub struct FuncInfo {
 }
 
 pub fn collect_func_info(func: &TraitItemFn) -> FuncInfo {
-    let has_recover = func
-        .attrs
-        .iter()
-        .find(|attr| {
-            let path = attr.path();
-            path.is_ident("recoverable")
-        })
-        .is_some();
-
-    let no_check = func
-        .attrs
-        .iter()
-        .find(|attr| {
-            let path = attr.path();
-            path.is_ident("no_check")
-        })
-        .is_some();
+    let has_recover = func.attrs.iter().any(|attr| {
+        let path = attr.path();
+        path.is_ident("recoverable")
+    });
+    let no_check = func.attrs.iter().any(|attr| {
+        let path = attr.path();
+        path.is_ident("no_check")
+    });
 
     let name = func.sig.ident.clone();
     let mut attr = func.attrs.clone();
@@ -159,12 +150,23 @@ pub struct TrampolineInfo {
     pub call_move_to: TokenStream,
 }
 
+pub struct TrampolineArg<'a> {
+    pub has_recovery: bool,
+    pub trait_name: &'a Ident,
+    pub proxy_name: &'a Ident,
+    pub func_name: Ident,
+    pub input_argv: Vec<Ident>,
+    pub fn_args: Vec<FnArg>,
+    pub arg_domain_change: Vec<TokenStream>,
+    pub out_put: ReturnType,
+    pub no_check: bool,
+}
 pub fn gen_trampoline_info(
     proxy_name: &Ident,
     func_name: &Ident,
     input_argv: &Vec<Ident>,
     fn_args: &Vec<FnArg>,
-    arg_domain_change: &Vec<TokenStream>,
+    arg_domain_change: &[TokenStream],
     no_check: bool,
 ) -> TrampolineInfo {
     let trampoline_ident = Ident::new(

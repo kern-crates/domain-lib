@@ -1,11 +1,11 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{FnArg, ItemTrait, ReturnType, TraitItem, TraitItemFn};
+use syn::{ItemTrait, TraitItem, TraitItemFn};
 
 use crate::{
     common::{
         collect_func_info, gen_trampoline_info, resource_code, FuncInfo, ResourceCode,
-        TrampolineInfo,
+        TrampolineArg, TrampolineInfo,
     },
     empty_impl::impl_empty_code,
     super_trait::impl_supertrait,
@@ -17,10 +17,10 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
     let func_vec = trait_def.items.clone();
 
     let ident = proxy.ident.clone();
-    let super_trait_code = impl_supertrait(ident.clone(), trait_def.clone(), SyncType::SRCU);
+    let super_trait_code = impl_supertrait(ident.clone(), trait_def.clone(), SyncType::Srcu);
 
     let (func_code, extern_func_code) =
-        impl_func(func_vec, &trait_name, &ident, proxy.source.is_some());
+        impl_func(func_vec, trait_name, &ident, proxy.source.is_some());
 
     let macro_ident = Ident::new(&format!("gen_for_{}", trait_name), trait_name.span());
     let impl_ident = Ident::new(&format!("impl_for_{}", trait_name), trait_name.span());
@@ -106,7 +106,6 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
         #empty_impl_for_code
 
     )
-    .into()
 }
 
 fn impl_prox_ext_trait(
@@ -154,7 +153,7 @@ fn impl_func(
     func_vec.iter().for_each(|item| match item {
         TraitItem::Fn(method) => {
             let (func_code, extern_func_code) =
-                impl_func_code(&method, trait_name, proxy_name, has_resource);
+                impl_func_code(method, trait_name, proxy_name, has_resource);
             func_codes.push(func_code);
             extern_func_codes.push(extern_func_code);
         }
@@ -185,7 +184,7 @@ fn impl_func_code(
 
     match func_name.to_string().as_str() {
         "init" => {
-            if input_argv.len() > 0 {
+            if !input_argv.is_empty() {
                 assert_eq!(input_argv.len(), 1);
             }
             let token = quote!(
@@ -197,7 +196,7 @@ fn impl_func_code(
             (token, quote!())
         }
         _ => {
-            let (func_inner, trampoline) = gen_trampoline(
+            let (func_inner, trampoline) = gen_trampoline(TrampolineArg {
                 has_recovery,
                 trait_name,
                 proxy_name,
@@ -205,9 +204,9 @@ fn impl_func_code(
                 input_argv,
                 fn_args,
                 arg_domain_change,
-                output,
+                out_put: output,
                 no_check,
-            );
+            });
 
             let token = quote!(
                 #(#attr)*
@@ -220,17 +219,19 @@ fn impl_func_code(
     }
 }
 
-fn gen_trampoline(
-    has_recover: bool,
-    trait_name: &Ident,
-    proxy_name: &Ident,
-    func_name: Ident,
-    input_argv: Vec<Ident>,
-    fn_args: Vec<FnArg>,
-    arg_domain_change: Vec<TokenStream>,
-    out_put: ReturnType,
-    no_check: bool,
-) -> (TokenStream, TokenStream) {
+fn gen_trampoline(arg: TrampolineArg) -> (TokenStream, TokenStream) {
+    let TrampolineArg {
+        has_recovery,
+        trait_name,
+        proxy_name,
+        func_name,
+        input_argv,
+        fn_args,
+        arg_domain_change,
+        out_put,
+        no_check,
+    } = arg;
+
     let TrampolineInfo {
         trampoline_ident,
         real_ident,
@@ -250,7 +251,7 @@ fn gen_trampoline(
         no_check,
     );
 
-    if has_recover {
+    if has_recovery {
         let call = quote! (
             {
 
