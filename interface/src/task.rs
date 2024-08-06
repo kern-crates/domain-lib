@@ -77,6 +77,18 @@ pub trait TaskDomain: Basic + DowncastSync {
     fn do_mmap_device(&self, phy_addr_range: Range<usize>) -> AlienResult<isize>;
     fn do_set_priority(&self, which: i32, who: u32, priority: i32) -> AlienResult<()>;
     fn do_get_priority(&self, which: i32, who: u32) -> AlienResult<i32>;
+    fn do_signal_stack(&self, ss: usize, oss: usize) -> AlienResult<isize>;
+    fn do_mprotect(&self, addr: usize, len: usize, prot: u32) -> AlienResult<isize>;
+    fn do_load_page_fault(&self, addr: usize) -> AlienResult<()>;
+    fn do_futex(
+        &self,
+        uaddr: usize,
+        futex_op: u32,
+        val: u32,
+        timeout: usize,
+        uaddr2: usize,
+        val3: u32,
+    ) -> AlienResult<isize>;
 }
 
 #[derive(Debug, Default)]

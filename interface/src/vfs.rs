@@ -1,6 +1,6 @@
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
-use pconst::io::SeekFrom;
+use pconst::{epoll::EpollEvent, io::SeekFrom};
 use rref::{RRef, RRefVec};
 use vfscore::utils::{VfsFileStat, VfsNodeType, VfsPollEvents};
 
@@ -83,6 +83,15 @@ pub trait VfsDomain: Basic + DowncastSync {
     fn do_socket(&self, socket_id: SocketID) -> AlienResult<InodeID>;
     /// Get the socket id from inode id
     fn socket_id(&self, inode: InodeID) -> AlienResult<SocketID>;
+    fn do_poll_create(&self, flags: usize) -> AlienResult<InodeID>;
+    fn do_poll_ctl(
+        &self,
+        inode: InodeID,
+        op: u32,
+        fd: usize,
+        event: RRef<EpollEvent>,
+    ) -> AlienResult<()>;
+    fn do_eventfd(&self, init_val: u32, flags: u32) -> AlienResult<InodeID>;
 }
 
 impl_downcast!(sync VfsDomain);

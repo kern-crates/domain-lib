@@ -1,4 +1,7 @@
-use core::ops::{Deref, DerefMut, Range};
+use core::{
+    ops::{Deref, DerefMut, Range},
+    sync::atomic::AtomicUsize,
+};
 
 use config::FRAME_SIZE;
 use memory_addr::{PhysAddr, VirtAddr};
@@ -98,6 +101,23 @@ impl FrameTracker {
         assert!(offset + core::mem::size_of::<T>() <= self.size());
         let ptr = self.ptr + offset;
         unsafe { &*(ptr as *const T) }
+    }
+
+    pub fn read_value_atomic(&self, offset: usize) -> usize {
+        assert!(offset + core::mem::size_of::<usize>() <= self.size());
+        let ptr = self.ptr + offset;
+        unsafe {
+            AtomicUsize::from_ptr(ptr as *mut usize).load(core::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    pub fn write_value_atomic(&self, offset: usize, value: usize) {
+        assert!(offset + core::mem::size_of::<usize>() <= self.size());
+        let ptr = self.ptr + offset;
+        unsafe {
+            AtomicUsize::from_ptr(ptr as *mut usize)
+                .store(value, core::sync::atomic::Ordering::SeqCst)
+        }
     }
 }
 
