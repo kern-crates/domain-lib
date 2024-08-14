@@ -6,7 +6,7 @@ use interface::DomainTypeRaw;
 #[derive(Debug, Default)]
 pub struct DomainInfo {
     pub ty_list: BTreeMap<DomainTypeRaw, Vec<DomainFileInfo>>,
-    pub domain_list: BTreeMap<String, DomainDataInfo>,
+    pub domain_list: BTreeMap<u64, DomainDataInfo>,
 }
 
 impl DomainInfo {
@@ -26,9 +26,11 @@ impl Display for DomainInfo {
                 writeln!(f, "  - {}: {} bytes", file.name, file.size)?;
             }
         }
-        for (name, data) in self.domain_list.iter() {
-            writeln!(f, "Domain: {}", name)?;
+        for (id, data) in self.domain_list.iter() {
+            writeln!(f, "Domain ID: {}", id)?;
+            writeln!(f, "  - Name: {}", data.name)?;
             writeln!(f, "  - Type: {:?}", data.ty)?;
+            writeln!(f, "  - Panic count: {}", data.panic_count)?;
             writeln!(f, "  - File: {}", data.file_info.name)?;
             writeln!(f, "  - Size: {} bytes", data.file_info.size)?;
         }
@@ -38,7 +40,9 @@ impl Display for DomainInfo {
 
 #[derive(Debug, Clone)]
 pub struct DomainDataInfo {
+    pub name: String,
     pub ty: DomainTypeRaw,
+    pub panic_count: usize,
     pub file_info: DomainFileInfo,
 }
 

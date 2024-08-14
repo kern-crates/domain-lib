@@ -108,7 +108,7 @@ pub fn collect_func_info(func: &TraitItemFn) -> FuncInfo {
                         fn_args.push(arg.clone());
                         let name = ident.ident.clone();
                         if ty.starts_with("RRef") {
-                            let change_code = quote! (
+                            let change_code = quote!(
                                 let old_id = #name.move_to(id);
                             );
                             arg_domain_change.push(change_code);
@@ -139,14 +139,8 @@ pub fn collect_func_info(func: &TraitItemFn) -> FuncInfo {
 }
 
 pub struct TrampolineInfo {
-    pub trampoline_ident: Ident,
-    pub real_ident: Ident,
-    pub error_ident: Ident,
-    pub error_ident_ptr: Ident,
     pub get_domain_id: TokenStream,
-    pub call_trampoline_arg: TokenStream,
     pub check_code: TokenStream,
-    pub trampoline_func_arg: TokenStream,
     pub call_move_to: TokenStream,
 }
 
@@ -161,37 +155,15 @@ pub struct TrampolineArg<'a> {
     pub out_put: ReturnType,
     pub no_check: bool,
 }
-pub fn gen_trampoline_info(
-    proxy_name: &Ident,
-    func_name: &Ident,
-    input_argv: &Vec<Ident>,
-    fn_args: &Vec<FnArg>,
-    arg_domain_change: &[TokenStream],
-    no_check: bool,
-) -> TrampolineInfo {
-    let trampoline_ident = Ident::new(
-        &format!("{}_{}_trampoline", proxy_name, func_name),
-        func_name.span(),
-    );
-    let real_ident = Ident::new(&format!("{}_{}", proxy_name, func_name), func_name.span());
-    let error_ident = Ident::new(&format!("{}_error", real_ident), func_name.span());
-    let error_ident_ptr = Ident::new(&format!("{}_error_ptr", real_ident), func_name.span());
-
-    let (get_domain_id, call_trampoline_arg) = if arg_domain_change.is_empty() {
-        let x2 = quote!(
-            r_domain,#(#input_argv),*
-        );
-        (quote!(), x2)
+pub fn gen_trampoline_info(arg_domain_change: &[TokenStream], no_check: bool) -> TrampolineInfo {
+    let get_domain_id = if arg_domain_change.is_empty() {
+        quote!()
     } else {
         let x1 = quote!(
             let id = r_domain.domain_id();
         );
-        let x2 = quote!(
-            r_domain,id,#(#input_argv),*
-        );
-        (x1, x2)
+        x1
     };
-
     let check_code = if no_check {
         quote!()
     } else {
@@ -200,27 +172,19 @@ pub fn gen_trampoline_info(
         })
     };
 
-    let (trampoline_func_arg, call_move_to) = if arg_domain_change.is_empty() {
-        let x1 = quote!(#(#fn_args),*);
+    let call_move_to = if arg_domain_change.is_empty() {
         let x2 = quote!();
-        (x1, x2)
+        x2
     } else {
-        let x1 = quote!(id:u64,#(#fn_args),*);
         let x2 = quote!(
             r.move_to(old_id);
         );
-        (x1, x2)
+        x2
     };
 
     TrampolineInfo {
-        trampoline_ident,
-        real_ident,
-        error_ident,
-        error_ident_ptr,
         get_domain_id,
-        call_trampoline_arg,
         check_code,
-        trampoline_func_arg,
         call_move_to,
     }
 }

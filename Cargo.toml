@@ -4,6 +4,7 @@ members = [
     "basic",
     "config",
     "corelib",
+    "domain_main",
     "gproxy",
     "interface",
     "ksync",

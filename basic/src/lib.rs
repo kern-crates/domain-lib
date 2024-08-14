@@ -15,7 +15,6 @@ pub mod time;
 pub mod vm;
 
 extern crate alloc;
-
 use alloc::sync::Arc;
 
 use corelib::domain_info::DomainInfo;
@@ -26,6 +25,7 @@ pub use corelib::{
     update_domain, vaddr_to_paddr_in_kernel, wait_now, wake_up_wait_task, write_console, yield_now,
     AlienError, AlienResult,
 };
+pub use domain_main::domain_main;
 use ksync::Mutex;
 
 pub type DomainInfoSet = Mutex<DomainInfo>;
@@ -33,4 +33,12 @@ pub type DomainInfoSet = Mutex<DomainInfo>;
 pub fn domain_info() -> Arc<DomainInfoSet> {
     let res = corelib::domain_info().unwrap();
     unsafe { res.downcast_unchecked() }
+}
+
+pub fn catch_unwind<F: FnOnce() -> AlienResult<R>, R>(f: F) -> AlienResult<R> {
+    let res = unwind::catch::catch_unwind(f).unwrap_or_else(|_| {
+        println_color!(31, "catch unwind error");
+        Err(AlienError::DOMAINCRASH)
+    });
+    res
 }

@@ -9,10 +9,11 @@ edition = "2021"
 config = { path = "../config" }
 arch = { path = "../arch" }
 ksync = { path = "../ksync" }
-
+domain_main = { path = "../domain_main" }
 corelib = { path = "../corelib", features = ["core_impl"]}
 task_meta = { path = "../task_meta" }
 rref = { path = "../rref" }
+unwind = { path = "../../base/unwind" }
 
 pod = { git = "https://github.com/asterinas/pod", rev = "d7dba56" }
 memory_addr = { git ="https://github.com/os-module/memory_addr" }

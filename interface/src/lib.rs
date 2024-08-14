@@ -223,29 +223,55 @@ impl TryInto<Arc<dyn DeviceBase>> for DomainType {
     }
 }
 
+impl DomainType {
+    pub fn domain_id(&self) -> u64 {
+        match self {
+            DomainType::FsDomain(d) => d.domain_id(),
+            DomainType::BlkDeviceDomain(d) => d.domain_id(),
+            DomainType::CacheBlkDeviceDomain(d) => d.domain_id(),
+            DomainType::RtcDomain(d) => d.domain_id(),
+            DomainType::GpuDomain(d) => d.domain_id(),
+            DomainType::InputDomain(d) => d.domain_id(),
+            DomainType::VfsDomain(d) => d.domain_id(),
+            DomainType::UartDomain(d) => d.domain_id(),
+            DomainType::PLICDomain(d) => d.domain_id(),
+            DomainType::TaskDomain(d) => d.domain_id(),
+            DomainType::SysCallDomain(d) => d.domain_id(),
+            DomainType::ShadowBlockDomain(d) => d.domain_id(),
+            DomainType::BufUartDomain(d) => d.domain_id(),
+            DomainType::NetDeviceDomain(d) => d.domain_id(),
+            DomainType::BufInputDomain(d) => d.domain_id(),
+            DomainType::EmptyDeviceDomain(d) => d.domain_id(),
+            DomainType::DevFsDomain(d) => d.domain_id(),
+            DomainType::SchedulerDomain(d) => d.domain_id(),
+            DomainType::LogDomain(d) => d.domain_id(),
+            DomainType::NetDomain(d) => d.domain_id(),
+        }
+    }
+}
+
 #[cfg(feature = "domain")]
 mod __impl {
     use core::{hint::spin_loop, sync::atomic::AtomicBool};
 
     static ACTIVE: AtomicBool = AtomicBool::new(false);
-
     /// Activate the domain
     ///
     /// It should be called in the `main` function of the domain.
     pub fn activate_domain() {
-        ACTIVE.store(true, core::sync::atomic::Ordering::SeqCst);
+        ACTIVE.store(true, core::sync::atomic::Ordering::Relaxed);
     }
 
     pub(super) fn is_active() -> bool {
-        ACTIVE.load(core::sync::atomic::Ordering::SeqCst)
+        ACTIVE.load(core::sync::atomic::Ordering::Relaxed)
     }
 
     /// Deactivate the domain
     ///
-    /// It should be called in the `panic` function of the domain and it should block the thread which
+    /// It should be called in the `panic` function of the domain it should block the thread which
     /// calls this function when the `ACTIVE` flag is false.
     pub fn deactivate_domain() {
-        while !ACTIVE.swap(false, core::sync::atomic::Ordering::SeqCst) {
+        while !ACTIVE.swap(false, core::sync::atomic::Ordering::Relaxed) {
             spin_loop();
         }
     }

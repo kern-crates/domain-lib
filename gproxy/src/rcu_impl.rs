@@ -9,6 +9,7 @@ use crate::{
     },
     empty_impl::impl_empty_code,
     super_trait::impl_supertrait,
+    unwind_impl::impl_unwind_code,
     Proxy, SyncType,
 };
 
@@ -27,6 +28,8 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
 
     let (empty_ident, empty_def_code, empty_impl_for_code) =
         impl_empty_code(trait_name, trait_def.clone());
+
+    let (_, unwind_def, unwind_impl_for) = impl_unwind_code(trait_name, trait_def.clone());
 
     let ResourceCode {
         resource_field,
@@ -105,6 +108,8 @@ pub fn def_struct_rcu(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
         }
         #empty_impl_for_code
 
+        #unwind_def
+        #unwind_impl_for
     )
 }
 
@@ -149,13 +154,11 @@ fn impl_func(
     has_resource: bool,
 ) -> (Vec<TokenStream>, Vec<TokenStream>) {
     let mut func_codes = vec![];
-    let mut extern_func_codes = vec![];
+    let extern_func_codes = vec![];
     func_vec.iter().for_each(|item| match item {
         TraitItem::Fn(method) => {
-            let (func_code, extern_func_code) =
-                impl_func_code(method, trait_name, proxy_name, has_resource);
+            let func_code = impl_func_code(method, trait_name, proxy_name, has_resource);
             func_codes.push(func_code);
-            extern_func_codes.push(extern_func_code);
         }
         _ => {
             panic!("item is not a function");
@@ -169,7 +172,7 @@ fn impl_func_code(
     trait_name: &Ident,
     proxy_name: &Ident,
     _has_resource: bool,
-) -> (TokenStream, TokenStream) {
+) -> TokenStream {
     let FuncInfo {
         has_recovery,
         no_check,
@@ -193,10 +196,10 @@ fn impl_func_code(
                     self.domain.get().init(#(#input_argv),*)
                 }
             );
-            (token, quote!())
+            token
         }
         _ => {
-            let (func_inner, trampoline) = gen_trampoline(TrampolineArg {
+            let func_inner = gen_trampoline(TrampolineArg {
                 has_recovery,
                 trait_name,
                 proxy_name,
@@ -214,163 +217,41 @@ fn impl_func_code(
                     #func_inner
                 }
             );
-            (token, trampoline)
+            token
         }
     }
 }
 
-fn gen_trampoline(arg: TrampolineArg) -> (TokenStream, TokenStream) {
+fn gen_trampoline(arg: TrampolineArg) -> TokenStream {
     let TrampolineArg {
-        has_recovery,
-        trait_name,
-        proxy_name,
+        has_recovery: _has_recovery,
+        trait_name: _trait_name,
+        proxy_name: _proxy_name,
         func_name,
         input_argv,
-        fn_args,
+        fn_args: _fn_args,
         arg_domain_change,
-        out_put,
+        out_put: _out_put,
         no_check,
     } = arg;
 
     let TrampolineInfo {
-        trampoline_ident,
-        real_ident,
-        error_ident,
-        error_ident_ptr,
         get_domain_id,
-        call_trampoline_arg,
         check_code,
-        trampoline_func_arg,
         call_move_to,
-    } = gen_trampoline_info(
-        proxy_name,
-        &func_name,
-        &input_argv,
-        &fn_args,
-        &arg_domain_change,
-        no_check,
-    );
+    } = gen_trampoline_info(&arg_domain_change, no_check);
 
-    if has_recovery {
-        let call = quote! (
-            {
-
-                let idx = self.srcu_lock.read_lock();
-                let r_domain = self.domain.get().as_ref();
-                #check_code
-                #get_domain_id
-                let res = unsafe {
-                    #trampoline_ident(#call_trampoline_arg)
-                };
-                self.srcu_lock.read_unlock(idx);
-                res
-            }
-        );
-        let asm_code = quote!(
-            #[no_mangle]
-            #[naked]
-            #[allow(non_snake_case)]
-            #[allow(undefined_naked_function_abi)]
-            unsafe fn #trampoline_ident(domain:&dyn #trait_name,#trampoline_func_arg) #out_put{
-                core::arch::asm!(
-                    "addi sp, sp, -33*8",
-                    "sd x1, 1*8(sp)",
-                    "sd x2, 2*8(sp)",
-                    // "sd x3, 3*8(sp)",
-                    // "sd x4, 4*8(sp)",
-                    "sd x5, 5*8(sp)",
-                    "sd x6, 6*8(sp)",
-                    "sd x7, 7*8(sp)",
-                    "sd x8, 8*8(sp)",
-                    "sd x9, 9*8(sp)",
-                    "sd x10, 10*8(sp)",
-                    "sd x11, 11*8(sp)",
-                    "sd x12, 12*8(sp)",
-                    "sd x13, 13*8(sp)",
-                    "sd x14, 14*8(sp)",
-                    "sd x15, 15*8(sp)",
-                    "sd x16, 16*8(sp)",
-                    "sd x17, 17*8(sp)",
-                    "sd x18, 18*8(sp)",
-                    "sd x19, 19*8(sp)",
-                    "sd x20, 20*8(sp)",
-                    "sd x21, 21*8(sp)",
-                    "sd x22, 22*8(sp)",
-                    "sd x23, 23*8(sp)",
-                    "sd x24, 24*8(sp)",
-                    "sd x25, 25*8(sp)",
-                    "sd x26, 26*8(sp)",
-                    "sd x27, 27*8(sp)",
-                    "sd x28, 28*8(sp)",
-                    "sd x29, 29*8(sp)",
-                    "sd x30, 30*8(sp)",
-                    "sd x31, 31*8(sp)",
-                    "call {error_ptr}",
-                    "sd a0, 32*8(sp)",
-                    "mv a0, sp",
-                    "call register_cont",
-                    //  recover caller saved registers
-                    "ld ra, 1*8(sp)",
-                    "ld x5, 5*8(sp)",
-                    "ld x6, 6*8(sp)",
-                    "ld x7, 7*8(sp)",
-                    "ld x10, 10*8(sp)",
-                    "ld x11, 11*8(sp)",
-                    "ld x12, 12*8(sp)",
-                    "ld x13, 13*8(sp)",
-                    "ld x14, 14*8(sp)",
-                    "ld x15, 15*8(sp)",
-                    "ld x16, 16*8(sp)",
-                    "ld x17, 17*8(sp)",
-                    "ld x28, 28*8(sp)",
-                    "ld x29, 29*8(sp)",
-                    "ld x30, 30*8(sp)",
-                    "ld x31, 31*8(sp)",
-                    "addi sp, sp, 33*8",
-                    "la gp, {real_func}",
-                    "jr gp",
-                    error_ptr = sym #error_ident_ptr,
-                    real_func = sym #real_ident,
-                    options(noreturn)
-                )
-            }
-            #[allow(non_snake_case)]
-            fn #real_ident(r_domain:&dyn #trait_name,#trampoline_func_arg) #out_put{
-                #(#arg_domain_change)*
-                let res = r_domain.#func_name(#(#input_argv),*).map(|r| {
-                    #call_move_to
-                    r
-                });
-                continuation::pop_continuation();
-                res
-            }
-            #[allow(non_snake_case)]
-            fn #error_ident() #out_put{
-                Err(AlienError::DOMAINCRASH)
-            }
-            #[allow(non_snake_case)]
-            fn #error_ident_ptr() ->usize{
-                #error_ident as usize
-            }
-
-        );
-        (call, asm_code)
-    } else {
-        (
-            quote! (
-                let idx = self.srcu_lock.read_lock();
-                let r_domain = self.domain.get();
-                #check_code
-                #get_domain_id
-                #(#arg_domain_change)*
-                let res = r_domain.#func_name(#(#input_argv),*).map(|r| {
-                    #call_move_to
-                    r
-                });
-                self.srcu_lock.read_unlock(idx);
-                res
-            ),
-            quote!(),
-        )
-    }
+    quote! (
+            let idx = self.srcu_lock.read_lock();
+            let r_domain = self.domain.get();
+            #check_code
+            #get_domain_id
+            #(#arg_domain_change)*
+            let res = r_domain.#func_name(#(#input_argv),*).map(|r| {
+                #call_move_to
+                r
+            });
+            self.srcu_lock.read_unlock(idx);
+            res
+    )
 }

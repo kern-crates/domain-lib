@@ -3,6 +3,7 @@ mod empty_impl;
 mod rcu_impl;
 mod rwlock_impl;
 mod super_trait;
+mod unwind_impl;
 
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
