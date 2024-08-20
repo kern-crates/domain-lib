@@ -11,7 +11,7 @@ gproxy = { path = "../gproxy" }
 log = "0"
 task_meta = { path = "../task_meta" }
 pconst = { git = "https://github.com/os-module/pconst.git", features = ["special_error"] }
-vfscore = { git = "https://github.com/os-module/rvfs.git", features = ["linux_error"] }
+vfscore = { path = "../../rvfs-ref/vfscore-ref", package = "vfscore-ref", features = ["linux_error"] }
 pod = { git = "https://github.com/asterinas/pod", rev = "d7dba56" }
 downcast-rs = { version = "1.2.0", default-features = false }
 

@@ -1,8 +1,9 @@
+use alloc::boxed::Box;
 use core::{
     alloc::Layout,
     fmt::{Debug, Formatter},
     mem::MaybeUninit,
-    ops::{Index, IndexMut},
+    ops::{Deref, DerefMut, Index, IndexMut},
 };
 
 use super::{CustomDrop, RRef, RRefable, SharedData, TypeIdentifiable};
@@ -13,6 +14,7 @@ where
 {
     data: RRef<T>,
     size: usize,
+    exist: bool,
 }
 unsafe impl<T> RRefable for RRefVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
 unsafe impl<T> Send for RRefVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
@@ -23,20 +25,39 @@ where
 {
     pub fn new(initial_value: T, size: usize) -> Self {
         let layout = Layout::array::<T>(size).unwrap();
-        let data = unsafe { RRef::new_with_layout(initial_value, layout) };
-        let mut vec = Self { data, size };
+        let data = unsafe { RRef::new_with_layout(initial_value, layout, false) };
+        let mut vec = Self {
+            data,
+            size,
+            exist: false,
+        };
         vec.as_mut_slice().fill(initial_value);
         vec
     }
+
+    pub fn new_uninit(size: usize) -> Self {
+        let layout = Layout::array::<T>(size).unwrap();
+        let data =
+            unsafe { RRef::new_with_layout(MaybeUninit::uninit().assume_init(), layout, false) };
+        Self {
+            data,
+            size,
+            exist: false,
+        }
+    }
+
     #[allow(clippy::uninit_assumed_init)]
     pub fn from_slice(slice: &[T]) -> Self {
         let size = slice.len();
         let layout = Layout::array::<T>(size).unwrap();
-        let data = unsafe { RRef::new_with_layout(MaybeUninit::uninit().assume_init(), layout) };
-        let mut vec = Self { data, size };
-        for (dest, src) in vec.as_mut_slice().iter_mut().zip(slice) {
-            *dest = *src;
-        }
+        let data =
+            unsafe { RRef::new_with_layout(MaybeUninit::uninit().assume_init(), layout, false) };
+        let mut vec = Self {
+            data,
+            size,
+            exist: false,
+        };
+        vec.as_mut_slice().copy_from_slice(slice);
         vec
     }
     pub fn as_slice(&self) -> &[T] {
@@ -54,6 +75,23 @@ where
 
     pub fn is_empty(&self) -> bool {
         self.size == 0
+    }
+
+    /// # WARNING
+    /// This is a super dangerous function, it will return a slice of the data without checking the domain id
+    pub fn from_other_rvec_slice(slice: &[T]) -> Self {
+        let id = Box::new(crate::domain_id());
+        let ptr = Box::into_raw(id);
+        let rref = RRef {
+            domain_id_pointer: ptr,
+            value_pointer: slice.as_ptr() as *mut T,
+            exist: true,
+        };
+        Self {
+            data: rref,
+            size: slice.len(),
+            exist: true,
+        }
     }
 }
 
@@ -84,12 +122,22 @@ where
 
 impl<T: RRefable + Copy + TypeIdentifiable> Drop for RRefVec<T> {
     fn drop(&mut self) {
+        unsafe {
+            if self.exist {
+                let id = self.data.domain_id_pointer;
+                let _d = Box::from_raw(id);
+                return;
+            }
+        }
         log::warn!("<drop> for RRefVec");
     }
 }
 
 impl<T: RRefable + Copy + TypeIdentifiable> CustomDrop for RRefVec<T> {
     fn custom_drop(&mut self) {
+        if self.exist {
+            return;
+        }
         log::warn!("<custom_drop> for RRefVec");
         self.data.custom_drop();
     }
@@ -98,5 +146,18 @@ impl<T: RRefable + Copy + TypeIdentifiable> CustomDrop for RRefVec<T> {
 impl<T: RRefable + Copy + TypeIdentifiable> SharedData for RRefVec<T> {
     fn move_to(&self, new_domain_id: u64) -> u64 {
         self.data.move_to(new_domain_id)
+    }
+}
+
+impl<T: RRefable + Copy + TypeIdentifiable> Deref for RRefVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<T: RRefable + Copy + TypeIdentifiable> DerefMut for RRefVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_slice()
     }
 }

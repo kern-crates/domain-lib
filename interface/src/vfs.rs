@@ -64,8 +64,9 @@ pub trait VfsDomain: Basic + DowncastSync {
         &self,
         inode: InodeID,
         offset: u64,
-        buf: RRefVec<u8>,
-    ) -> AlienResult<(RRefVec<u8>, usize)>;
+        buf: &RRefVec<u8>,
+        w: usize,
+    ) -> AlienResult<usize>;
     fn vfs_write(&self, inode: InodeID, buf: &RRefVec<u8>, w: usize) -> AlienResult<usize>;
     fn vfs_flush(&self, inode: InodeID) -> AlienResult<()>;
     fn vfs_fsync(&self, inode: InodeID) -> AlienResult<()>;

@@ -227,11 +227,29 @@ mod core_impl {
         CORE_FUNC.get_must().vaddr_to_paddr_in_kernel(vaddr)
     }
 
+    #[inline(always)]
+    fn current_tid_from_tp() -> Option<usize> {
+        let mut tp: usize;
+        unsafe {
+            core::arch::asm!(
+                "mv {}, tp",
+                out(reg) tp,
+            )
+        }
+        tp = tp >> 32;
+        if tp == 0 {
+            None
+        } else {
+            Some(tp)
+        }
+    }
+    #[inline(always)]
     pub fn current_tid() -> AlienResult<Option<usize>> {
-        CORE_FUNC
-            .get_must()
-            .task_op(TaskOperation::Current)
-            .map(|res| res.current_tid())
+        // CORE_FUNC
+        //     .get_must()
+        //     .task_op(TaskOperation::Current)
+        //     .map(|res| res.current_tid())
+        Ok(current_tid_from_tp())
     }
     /// return kstack top
     pub fn add_one_task(task_meta: TaskMeta) -> AlienResult<usize> {

@@ -10,8 +10,7 @@ use crate::{vfs::InodeID, Basic};
 #[proxy(TaskDomainProxy, RwLock)]
 pub trait TaskDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
-    fn trap_frame_virt_addr(&self) -> AlienResult<usize>;
-    fn current_task_satp(&self) -> AlienResult<usize>;
+    fn satp_with_trap_frame_virt_addr(&self) -> AlienResult<(usize, usize)>;
     fn trap_frame_phy_addr(&self) -> AlienResult<usize>;
     fn heap_info(&self, tmp_heap_info: RRef<TmpHeapInfo>) -> AlienResult<RRef<TmpHeapInfo>>;
     fn get_fd(&self, fd: usize) -> AlienResult<InodeID>;

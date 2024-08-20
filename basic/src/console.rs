@@ -11,6 +11,7 @@ macro_rules! print {
             "mv {},tp", out(reg)id,
             );
         }
+        id = id as u32 as usize;
         $crate::console::__print(format_args!("[{}][Domain:{}] {}", id,domain_id, format_args!($($arg)*)))
     };
 }

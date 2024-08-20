@@ -18,8 +18,9 @@ pub struct RRef<T>
 where
     T: 'static + RRefable,
 {
-    domain_id_pointer: *mut u64,
-    value_pointer: *mut T,
+    pub(crate) domain_id_pointer: *mut u64,
+    pub(crate) value_pointer: *mut T,
+    pub(crate) exist: bool,
 }
 
 unsafe impl<T: RRefable> RRefable for RRef<T> {}
@@ -44,7 +45,7 @@ impl<T: RRefable> RRef<T>
 where
     T: TypeIdentifiable,
 {
-    pub(crate) unsafe fn new_with_layout(value: T, layout: Layout) -> RRef<T> {
+    pub(crate) unsafe fn new_with_layout(value: T, layout: Layout, init: bool) -> RRef<T> {
         let type_id = T::type_id();
         let mut drop_guard = DROP.lock();
         drop_guard.entry(type_id).or_insert(drop_no_type::<T>);
@@ -56,21 +57,50 @@ where
         };
         let value_pointer = allocation.value_pointer as *mut T;
         *allocation.domain_id_pointer = crate::domain_id();
-        core::ptr::write(value_pointer, value);
+        if init {
+            core::ptr::write(value_pointer, value);
+        }
         RRef {
             domain_id_pointer: allocation.domain_id_pointer,
             value_pointer,
+            exist: false,
         }
     }
+
     pub fn new(value: T) -> RRef<T> {
         let layout = Layout::new::<T>();
-        unsafe { Self::new_with_layout(value, layout) }
+        unsafe { Self::new_with_layout(value, layout, true) }
     }
+
     pub fn new_aligned(value: T, align: usize) -> RRef<T> {
         let size = core::mem::size_of::<T>();
         let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
-        unsafe { Self::new_with_layout(value, layout) }
+        unsafe { Self::new_with_layout(value, layout, true) }
     }
+
+    pub fn new_uninit() -> RRef<T> {
+        let layout = Layout::new::<T>();
+        unsafe {
+            Self::new_with_layout(
+                core::mem::MaybeUninit::uninit().assume_init(),
+                layout,
+                false,
+            )
+        }
+    }
+
+    pub fn new_uninit_aligned(align: usize) -> RRef<T> {
+        let size = core::mem::size_of::<T>();
+        let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
+        unsafe {
+            Self::new_with_layout(
+                core::mem::MaybeUninit::uninit().assume_init(),
+                layout,
+                false,
+            )
+        }
+    }
+
     pub fn domain_id(&self) -> u64 {
         unsafe { *self.domain_id_pointer }
     }
@@ -91,6 +121,9 @@ impl<T: RRefable> DerefMut for RRef<T> {
 
 impl<T: RRefable> Drop for RRef<T> {
     fn drop(&mut self) {
+        if self.exist {
+            return;
+        }
         log::warn!("<drop> for RRef {:#x}", self.value_pointer as usize);
         self.custom_drop();
     }
@@ -98,6 +131,9 @@ impl<T: RRefable> Drop for RRef<T> {
 
 impl<T: RRefable> CustomDrop for RRef<T> {
     fn custom_drop(&mut self) {
+        if self.exist {
+            return;
+        }
         log::warn!("<custom_drop> for RRef {:#x}", self.value_pointer as usize);
         let value = unsafe { &mut *self.value_pointer };
         value.custom_drop();

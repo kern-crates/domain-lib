@@ -4,6 +4,16 @@ use pconst::time::{TimeSpec, TimeVal};
 pub fn read_time_ms() -> u64 {
     get_time_ms()
 }
+#[inline]
+pub fn read_time_ns() -> u64 {
+    let time = read_timer();
+    time as u64 * 1_000_000_000 / CLOCK_FREQ as u64
+}
+#[inline]
+pub fn read_time_us() -> u64 {
+    let time = read_timer();
+    time as u64 * 1_000_000 / CLOCK_FREQ as u64
+}
 
 #[inline]
 pub fn read_timer() -> usize {
