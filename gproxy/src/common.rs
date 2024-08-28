@@ -167,9 +167,10 @@ pub fn gen_trampoline_info(arg_domain_change: &[TokenStream], no_check: bool) ->
     let check_code = if no_check {
         quote!()
     } else {
-        quote!(if !r_domain.is_active() {
-            return Err(AlienError::DOMAINCRASH);
-        })
+        // quote!(if !r_domain.is_active() {
+        //     return Err(AlienError::DOMAINCRASH);
+        // })
+        quote!()
     };
 
     let call_move_to = if arg_domain_change.is_empty() {
