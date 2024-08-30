@@ -70,6 +70,10 @@ pub fn read_timer() -> usize {
     riscv::register::time::read()
 }
 
+pub fn read_cycle() -> usize {
+    riscv::register::cycle::read()
+}
+
 /// 激活页表模式
 pub fn activate_paging_mode(root_ppn: usize) {
     unsafe {
