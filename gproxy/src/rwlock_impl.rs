@@ -335,9 +335,11 @@ fn impl_inner_code(
     );
 
     let inner_call = quote!(
+        #[inline(always)]
         fn #__ident(&self, #(#fn_argv),*)#output{
             #ident_call
         }
+        #[inline(always)]
         fn #__ident_no_lock(&self, #(#fn_argv),*)#output{
             self.counter.inc();
             let res = self.#__ident(#(#input_argv),*);
@@ -345,6 +347,7 @@ fn impl_inner_code(
             res
         }
         #[cold]
+        #[inline(always)]
         fn #__ident_with_lock(&self, #(#fn_argv),*)#output{
             let r_lock = self.lock.read();
             let res = self.#__ident(#(#input_argv),*);

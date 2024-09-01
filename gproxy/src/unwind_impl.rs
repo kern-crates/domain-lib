@@ -20,6 +20,7 @@ pub fn impl_unwind_supertrait(ident: Ident, trait_def: ItemTrait) -> TokenStream
                                     basic::catch_unwind(||{
                                         self.0.handle_irq()
                                     })
+                                    // self.0.handle_irq()
                                 }
                             }
                         );
@@ -99,6 +100,7 @@ fn impl_unwind_func_code(func: &TraitItemFn) -> TokenStream {
                     basic::catch_unwind(||{
                         self.0.#name(#(#input_argv),*)
                     })
+                    // self.0.#name(#(#input_argv),*)
                 }
             );
             token
