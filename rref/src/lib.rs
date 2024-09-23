@@ -12,7 +12,6 @@ use core::{
     any::{type_name_of_val, TypeId},
 };
 
-pub use custom_drop::CustomDrop as CustomDropOps;
 pub use rref::RRef;
 pub use rvec::RRefVec;
 use spin::Once;

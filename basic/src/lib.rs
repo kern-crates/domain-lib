@@ -23,7 +23,7 @@ pub use corelib::{
     current_tid, exit_now, get_domain, get_task_priority, is_task_exit, kernel_satp,
     register_domain, reload_domain, remove_task, set_task_priority, trap_from_user, trap_to_user,
     update_domain, vaddr_to_paddr_in_kernel, wait_now, wake_up_wait_task, write_console, yield_now,
-    AlienError, AlienResult,
+    AlienError, AlienResult, CoreFunction,
 };
 pub use domain_main::domain_main;
 use ksync::Mutex;

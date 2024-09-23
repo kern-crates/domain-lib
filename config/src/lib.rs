@@ -22,6 +22,7 @@ pub const ALIEN_FLAG: &str = r"
 
 /// 物理页大小
 pub const FRAME_SIZE: usize = 0x1000;
+pub const PAGE_SIZE: usize = FRAME_SIZE;
 /// 物理页大小的位数
 pub const FRAME_BITS: usize = 12;
 /// 内核启动栈大小

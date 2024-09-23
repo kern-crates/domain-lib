@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 spin = "0"
 log = "0"
-custom_drop = { path = "../custom_drop" }
+#custom_drop = { path = "../custom_drop" }

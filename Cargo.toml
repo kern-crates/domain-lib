@@ -7,7 +7,7 @@ members = [
     "domain_main",
     "gproxy",
     "interface",
-    "ksync",
+    "ksync", "loader",
     "malloc",
     "rref",
     "storage",
