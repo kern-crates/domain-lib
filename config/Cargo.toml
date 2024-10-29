@@ -8,6 +8,5 @@ edition = "2021"
 [dependencies]
 
 
-[features]
-default = ["qemu_riscv"]
-qemu_riscv = []
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(vf2)','cfg(qemu_riscv)'] }
