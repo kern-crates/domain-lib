@@ -10,24 +10,25 @@ config = { path = "../config" }
 arch = { path = "../arch" }
 ksync = { path = "../ksync" }
 domain_main = { path = "../domain_main" }
-corelib = { path = "../corelib", features = ["core_impl"]}
+corelib = { path = "../corelib", features = ["core_impl"] }
 task_meta = { path = "../task_meta" }
 rref = { path = "../rref" }
 
 pod = { git = "https://github.com/asterinas/pod", rev = "d7dba56" }
-memory_addr = { git ="https://github.com/os-module/memory_addr" }
+memory_addr = { git = "https://github.com/os-module/memory_addr" }
 int-enum = "1"
 riscv = "0.11"
 log = { version = "0", optional = true }
-pconst = { git = "https://github.com/os-module/pconst.git", features = ["special_error"] }
+pconst = { git = "https://github.com/os-module/pconst.git", features = [
+    "special_error",
+] }
 spin = "0"
-unwinding = { version = "0.2.3", default-features = false,  features = [
+unwinding = { git = "https://github.com/nbdd0121/unwinding", rev = "ff0e91b", default-features = false, features = [
     "unwinder",
     "fde-gnu-eh-frame-hdr",
     "panic",
-    "personality"
-]}
-
+    "personality",
+] }
 
 
 [features]
