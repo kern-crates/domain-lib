@@ -145,11 +145,12 @@ fn impl_prox_ext_trait(
         impl #proxy_name{
             pub fn replace(&self,new_domain: Box<dyn #trait_name>,loader:DomainLoader) -> AlienResult<()> {
                 // stage1: get the sleep lock and change to updating state
+                let tick = TimeTick::new("Task Sync");
                 let mut loader_guard = self.domain_loader.lock();
                 k_static_branch_enable!(BLKDOMAINPROXY_KEY);
 
                 // why we need to synchronize_sched here?
-                synchronize_sched();
+                // synchronize_sched();
 
                 // stage2: get the write lock and wait for all readers to finish
                 let w_lock = self.lock.write();
@@ -158,23 +159,30 @@ fn impl_prox_ext_trait(
                     println!("Wait for all reader to finish");
                     yield_now();
                 }
+                drop(tick);
 
+                let tick = TimeTick::new("Reinit and state transfer");
                 let old_id = self.domain_id();
 
                 // stage3: init the new domain before swap
                 let new_domain_id = new_domain.domain_id();
                 #replace_call
+                drop(tick);
 
+                let tick = TimeTick::new("Domain swap");
                 // stage4: swap the domain and change to normal state
                 let old_domain = self.domain.swap(Box::new(new_domain));
                 // change to normal state
                 k_static_branch_disable!(BLKDOMAINPROXY_KEY);
 
+                drop(tick);
+
+                let tick = TimeTick::new("Recycle resources");
                 // stage5: recycle all resources
                 let real_domain = Box::into_inner(old_domain);
                 forget(real_domain);
                 free_domain_resource(old_id, FreeShared::NotFree(new_domain_id));
-
+                drop(tick);
                 // stage6: release all locks
                 *loader_guard = loader;
                 drop(w_lock);

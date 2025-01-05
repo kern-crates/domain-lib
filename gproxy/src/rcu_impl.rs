@@ -121,24 +121,32 @@ fn impl_prox_ext_trait(
     quote!(
         impl #proxy_name{
              pub fn replace(&self,new_domain: Box<dyn #trait_name>,loader:DomainLoader) -> AlienResult<()> {
+                let tick = TimeTick::new("Reinit domain");
                 let mut loader_guard = self.domain_loader.lock();
                 let old_id = self.domain_id();
 
                 // init the new domain before swap
                 #replace_call
-
-                 let old_domain = self.domain.swap(Box::new(new_domain));
+                drop(tick);
+                let tick = TimeTick::new("Domain swap");
+                let old_domain = self.domain.swap(Box::new(new_domain));
                 // synchronize the reader which is reading the old domain
                 // println!("srcu synchronize");
+                drop(tick);
+
+                let tick = TimeTick::new("SRCU Synchronize");
                 self.srcu_lock.synchronize();
                 // println!("srcu synchronize end");
+                drop(tick);
 
+                let tick = TimeTick::new("Recycle resources");
                 // forget the old domain
                 // it will be dropped by the `free_domain_resource`
                 let real_domain = Box::into_inner(old_domain);
                 forget(real_domain);
 
                 free_domain_resource(old_id, FreeShared::Free);
+                drop(tick);
                 *loader_guard = loader;
 
                 Ok(())
