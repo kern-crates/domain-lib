@@ -150,7 +150,7 @@ fn impl_prox_ext_trait(
                 k_static_branch_enable!(BLKDOMAINPROXY_KEY);
 
                 // why we need to synchronize_sched here?
-                // synchronize_sched();
+                synchronize_sched();
 
                 // stage2: get the write lock and wait for all readers to finish
                 let w_lock = self.lock.write();
