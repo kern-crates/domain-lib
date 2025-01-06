@@ -147,13 +147,16 @@ fn impl_prox_ext_trait(
                 // stage1: get the sleep lock and change to updating state
                 let tick = TimeTick::new("Task Sync");
                 let mut loader_guard = self.domain_loader.lock();
+
+
+                 // stage2: get the write lock and wait for all readers to finish
+                let w_lock = self.lock.write();
+
                 k_static_branch_enable!(BLKDOMAINPROXY_KEY);
 
                 // why we need to synchronize_sched here?
                 synchronize_sched();
 
-                // stage2: get the write lock and wait for all readers to finish
-                let w_lock = self.lock.write();
                 // wait if there are readers which are reading the old domain but no read lock
                 while self.all_counter() > 0 {
                     // println!("Wait for all reader to finish");
@@ -357,7 +360,14 @@ fn impl_inner_code(
         #[cold]
         #[inline(always)]
         fn #__ident_with_lock(&self, #(#fn_argv),*)#output{
-            let r_lock = self.lock.read();
+            // let r_lock = self.lock.read();
+            let  r_lock = loop {
+                if let Some(r) = self.lock.try_read() {
+                    break r;
+                }else {
+                    yield_now();
+                }
+            };
             let res = self.#__ident(#(#input_argv),*);
             drop(r_lock);
             res
