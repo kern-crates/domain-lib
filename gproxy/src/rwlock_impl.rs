@@ -46,7 +46,7 @@ pub fn def_struct_rwlock(proxy: Proxy, trait_def: ItemTrait) -> TokenStream {
         trait_name.span(),
     );
 
-    let prox_ext_impl = impl_prox_ext_trait(&ident, replace_call, trait_name);
+    let prox_ext_impl = impl_prox_ext_trait(&ident, replace_call, trait_name, ident_key.clone());
 
     quote::quote!(
         #[macro_export]
@@ -140,6 +140,7 @@ fn impl_prox_ext_trait(
     proxy_name: &Ident,
     replace_call: TokenStream,
     trait_name: &Ident,
+    ident_key: Ident,
 ) -> TokenStream {
     let code = quote!(
         impl #proxy_name{
@@ -152,7 +153,7 @@ fn impl_prox_ext_trait(
                  // stage2: get the write lock and wait for all readers to finish
                 let w_lock = self.lock.write();
 
-                k_static_branch_enable!(BLKDOMAINPROXY_KEY);
+                k_static_branch_enable!(#ident_key);
 
                 // why we need to synchronize_sched here?
                 synchronize_sched();
@@ -176,7 +177,7 @@ fn impl_prox_ext_trait(
                 // stage4: swap the domain and change to normal state
                 let old_domain = self.domain.swap(Box::new(new_domain));
                 // change to normal state
-                k_static_branch_disable!(BLKDOMAINPROXY_KEY);
+                k_static_branch_disable!(#ident_key);
 
                 drop(tick);
 
