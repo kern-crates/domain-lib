@@ -17,7 +17,6 @@ use core::{
     ops::Range,
 };
 
-use corelib::domain_info::DomainFileInfo;
 use log::{debug, trace};
 use memory_addr::VirtAddr;
 use storage::StorageArg;
@@ -76,11 +75,9 @@ impl<V: DomainVmOps> DomainLoader<V> {
         }
     }
 
-    pub fn domain_file_info(&self) -> DomainFileInfo {
-        DomainFileInfo {
-            name: self.ident.clone(),
-            size: self.data.len(),
-        }
+    /// Return the domain file info(name, size)
+    pub fn domain_file_info(&self) -> (String, usize) {
+        (self.ident.clone(), self.data.len())
     }
 
     pub fn empty() -> Self {
@@ -91,24 +88,25 @@ impl<V: DomainVmOps> DomainLoader<V> {
         self.entry_point
     }
 
-    pub fn call<T: ?Sized, F>(&self, id: u64, use_old_id: Option<u64>, callback: F) -> Box<T>
+    pub fn call<T: ?Sized, C: 'static + ?Sized, F>(
+        &self,
+        id: u64,
+        use_old_id: Option<u64>,
+        callback: F,
+    ) -> Box<T>
     where
         F: FnOnce(
             Option<u64>,
         ) -> (
-            &'static dyn corelib::CoreFunction,
+            &'static C,
             &'static dyn shared_heap::SharedHeapAlloc,
             StorageArg,
         ),
     {
-        type F<T> = fn(
-            &'static dyn corelib::CoreFunction,
-            u64,
-            &'static dyn shared_heap::SharedHeapAlloc,
-            StorageArg,
-        ) -> Box<T>;
+        type F<T, C> =
+            fn(&'static C, u64, &'static dyn shared_heap::SharedHeapAlloc, StorageArg) -> Box<T>;
         let main =
-            unsafe { core::mem::transmute::<*const (), F<T>>(self.entry_point() as *const ()) };
+            unsafe { core::mem::transmute::<*const (), F<T, C>>(self.entry_point() as *const ()) };
         let (syscall, heap, storage_arg) = callback(use_old_id);
         main(syscall, id, heap, storage_arg)
     }
