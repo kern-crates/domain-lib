@@ -44,6 +44,6 @@ pub fn catch_unwind<F: FnOnce() -> AlienResult<R>, R>(f: F) -> AlienResult<R> {
     res
 }
 
-pub fn begin_panic() {
+pub fn unwind_from_panic() {
     unwinding::panic::begin_panic(Box::new(()));
 }

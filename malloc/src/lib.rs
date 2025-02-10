@@ -4,24 +4,17 @@ use core::alloc::GlobalAlloc;
 use buddy_system_allocator::LockedHeap;
 use shared_heap::domain_id;
 
-#[global_allocator]
-static HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::new();
-
 pub struct HeapAllocator {
     allocator: LockedHeap<32>,
+    alloc_pages: fn(n: usize, domain_id: u64) -> *mut u8,
 }
 
 impl HeapAllocator {
-    pub const fn new() -> Self {
+    pub const fn new(alloc_pages: fn(n: usize, domain_id: u64) -> *mut u8) -> Self {
         Self {
             allocator: LockedHeap::<32>::new(),
+            alloc_pages,
         }
-    }
-}
-
-impl Default for HeapAllocator {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -32,7 +25,8 @@ unsafe impl GlobalAlloc for HeapAllocator {
             let need_pages = (layout.size() + 4096 - 1) / 4096;
             let need_pages = (need_pages * 2).next_power_of_two();
             // we alloc two times of the pages we need
-            let new_pages = corelib::alloc_raw_pages(need_pages, domain_id());
+            let f = self.alloc_pages;
+            let new_pages = f(need_pages, domain_id());
             assert!(!new_pages.is_null());
             self.allocator
                 .lock()
