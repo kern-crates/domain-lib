@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 corelib = { path = "../corelib" }
-rref = { path = "../rref" }
+shared_heap = { path = "../shared_heap" }
 storage = { path = "../storage" }
 
 xmas-elf = "0.9"

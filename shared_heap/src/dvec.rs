@@ -6,26 +6,26 @@ use core::{
     ops::{Deref, DerefMut, Index, IndexMut},
 };
 
-use super::{CustomDrop, RRef, RRefable, SharedData, TypeIdentifiable};
+use super::{CustomDrop, DBox, RRefable, SharedData, TypeIdentifiable};
 
-pub struct RRefVec<T>
+pub struct DVec<T>
 where
     T: 'static + RRefable + Copy + TypeIdentifiable,
 {
-    data: RRef<T>,
+    data: DBox<T>,
     size: usize,
     exist: bool,
 }
-unsafe impl<T> RRefable for RRefVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
-unsafe impl<T> Send for RRefVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
+unsafe impl<T> RRefable for DVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
+unsafe impl<T> Send for DVec<T> where T: 'static + RRefable + Copy + TypeIdentifiable {}
 
-impl<T> RRefVec<T>
+impl<T> DVec<T>
 where
     T: 'static + RRefable + Copy + TypeIdentifiable,
 {
     pub fn new(initial_value: T, size: usize) -> Self {
         let layout = Layout::array::<T>(size).unwrap();
-        let data = unsafe { RRef::new_with_layout(initial_value, layout, false) };
+        let data = unsafe { DBox::new_with_layout(initial_value, layout, false) };
         let mut vec = Self {
             data,
             size,
@@ -38,7 +38,7 @@ where
     pub fn new_uninit(size: usize) -> Self {
         let layout = Layout::array::<T>(size).unwrap();
         let data =
-            unsafe { RRef::new_with_layout(MaybeUninit::uninit().assume_init(), layout, false) };
+            unsafe { DBox::new_with_layout(MaybeUninit::uninit().assume_init(), layout, false) };
         Self {
             data,
             size,
@@ -51,7 +51,7 @@ where
         let size = slice.len();
         let layout = Layout::array::<T>(size).unwrap();
         let data =
-            unsafe { RRef::new_with_layout(MaybeUninit::uninit().assume_init(), layout, false) };
+            unsafe { DBox::new_with_layout(MaybeUninit::uninit().assume_init(), layout, false) };
         let mut vec = Self {
             data,
             size,
@@ -82,45 +82,45 @@ where
     pub fn from_other_rvec_slice(slice: &[T]) -> Self {
         let id = Box::new(crate::domain_id());
         let ptr = Box::into_raw(id);
-        let rref = RRef {
+        let shared_heap = DBox {
             domain_id_pointer: ptr,
             value_pointer: slice.as_ptr() as *mut T,
             exist: true,
         };
         Self {
-            data: rref,
+            data: shared_heap,
             size: slice.len(),
             exist: true,
         }
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> Index<usize> for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> Index<usize> for DVec<T> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
         &self.as_slice()[index]
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> IndexMut<usize> for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> IndexMut<usize> for DVec<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
     }
 }
 
-impl<T> Debug for RRefVec<T>
+impl<T> Debug for DVec<T>
 where
     T: 'static + RRefable + Copy + TypeIdentifiable + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("RRefVec")
+        f.debug_struct("DVec")
             .field("data", &self.data)
             .field("size", &self.size)
             .finish()
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> Drop for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> Drop for DVec<T> {
     fn drop(&mut self) {
         unsafe {
             if self.exist {
@@ -129,34 +129,34 @@ impl<T: RRefable + Copy + TypeIdentifiable> Drop for RRefVec<T> {
                 return;
             }
         }
-        log::warn!("<drop> for RRefVec");
+        log::warn!("<drop> for DVec");
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> CustomDrop for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> CustomDrop for DVec<T> {
     fn custom_drop(&mut self) {
         if self.exist {
             return;
         }
-        log::warn!("<custom_drop> for RRefVec");
+        log::warn!("<custom_drop> for DVec");
         self.data.custom_drop();
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> SharedData for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> SharedData for DVec<T> {
     fn move_to(&self, new_domain_id: u64) -> u64 {
         self.data.move_to(new_domain_id)
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> Deref for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> Deref for DVec<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
 }
 
-impl<T: RRefable + Copy + TypeIdentifiable> DerefMut for RRefVec<T> {
+impl<T: RRefable + Copy + TypeIdentifiable> DerefMut for DVec<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }

@@ -107,7 +107,7 @@ pub fn collect_func_info(func: &TraitItemFn) -> FuncInfo {
                     syn::Pat::Ident(ident) => {
                         fn_args.push(arg.clone());
                         let name = ident.ident.clone();
-                        if ty.starts_with("RRef") {
+                        if ty.starts_with("DBox") || ty.starts_with("DVec") {
                             let change_code = quote!(
                                 let old_id = #name.move_to(id);
                             );

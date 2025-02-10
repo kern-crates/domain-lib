@@ -7,9 +7,10 @@ members = [
     "domain_main",
     "gproxy",
     "interface",
-    "ksync", "loader",
+    "ksync",
+    "loader",
     "malloc",
-    "rref",
+    "shared_heap",
     "storage",
     "task_meta",
 ]

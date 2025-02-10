@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
-use rref::RRefVec;
+use shared_heap::DVec;
 
 use super::AlienResult;
 use crate::{Basic, DeviceBase};
@@ -27,7 +27,7 @@ pub trait NetDeviceDomain: DeviceBase + Basic + DowncastSync {
 
     /// Transmits a packet in the buffer to the network, without blocking,
     /// returns [`DevResult`].
-    fn transmit(&self, tx_buf: &RRefVec<u8>) -> AlienResult<()>;
+    fn transmit(&self, tx_buf: &DVec<u8>) -> AlienResult<()>;
 
     /// Receives a packet from the network and store it in the [`NetBuf`],
     /// returns the buffer.
@@ -37,7 +37,7 @@ pub trait NetDeviceDomain: DeviceBase + Basic + DowncastSync {
     ///
     /// If currently no incomming packets, returns an error with type
     /// [`DevError::Again`].
-    fn receive(&self, rx_buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
+    fn receive(&self, rx_buf: DVec<u8>) -> AlienResult<(DVec<u8>, usize)>;
 }
 
 impl_downcast!(sync NetDeviceDomain);

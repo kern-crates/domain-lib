@@ -3,7 +3,7 @@ use core::ops::Range;
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
 use pod::Pod;
-use rref::{RRef, RRefVec};
+use shared_heap::{DBox, DVec};
 
 use super::AlienResult;
 use crate::{vfs::InodeID, Basic};
@@ -12,7 +12,7 @@ pub trait TaskDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
     fn satp_with_trap_frame_virt_addr(&self) -> AlienResult<(usize, usize)>;
     fn trap_frame_phy_addr(&self) -> AlienResult<usize>;
-    fn heap_info(&self, tmp_heap_info: RRef<TmpHeapInfo>) -> AlienResult<RRef<TmpHeapInfo>>;
+    fn heap_info(&self, tmp_heap_info: DBox<TmpHeapInfo>) -> AlienResult<DBox<TmpHeapInfo>>;
     fn get_fd(&self, fd: usize) -> AlienResult<InodeID>;
     fn add_fd(&self, inode: InodeID) -> AlienResult<usize>;
     fn remove_fd(&self, fd: usize) -> AlienResult<InodeID>;
@@ -20,11 +20,7 @@ pub trait TaskDomain: Basic + DowncastSync {
     fn set_cwd(&self, inode: InodeID) -> AlienResult<()>;
     fn copy_to_user(&self, dst: usize, buf: &[u8]) -> AlienResult<()>;
     fn copy_from_user(&self, src: usize, buf: &mut [u8]) -> AlienResult<()>;
-    fn read_string_from_user(
-        &self,
-        src: usize,
-        buf: RRefVec<u8>,
-    ) -> AlienResult<(RRefVec<u8>, usize)>;
+    fn read_string_from_user(&self, src: usize, buf: DVec<u8>) -> AlienResult<(DVec<u8>, usize)>;
     fn current_pid(&self) -> AlienResult<usize>;
     fn current_ppid(&self) -> AlienResult<usize>;
     fn do_brk(&self, addr: usize) -> AlienResult<isize>;

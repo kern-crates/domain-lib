@@ -2,7 +2,7 @@
 use core::alloc::GlobalAlloc;
 
 use buddy_system_allocator::LockedHeap;
-use rref::domain_id;
+use shared_heap::domain_id;
 
 #[global_allocator]
 static HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::new();

@@ -4,7 +4,7 @@ use ksync::Mutex;
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        let domain_id = rref::domain_id();
+        let domain_id = shared_heap::domain_id();
         let mut id: usize;
         unsafe {
             core::arch::asm!(

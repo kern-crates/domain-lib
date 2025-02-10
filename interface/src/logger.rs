@@ -1,6 +1,6 @@
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
-use rref::RRefVec;
+use shared_heap::DVec;
 
 use super::AlienResult;
 use crate::Basic;
@@ -8,7 +8,7 @@ use crate::Basic;
 #[proxy(LogDomainProxy, SRCU)]
 pub trait LogDomain: Basic + DowncastSync {
     fn init(&self) -> AlienResult<()>;
-    fn log(&self, level: Level, msg: &RRefVec<u8>) -> AlienResult<()>;
+    fn log(&self, level: Level, msg: &DVec<u8>) -> AlienResult<()>;
     fn set_max_level(&self, level: LevelFilter) -> AlienResult<()>;
 }
 

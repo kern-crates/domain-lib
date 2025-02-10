@@ -1,5 +1,5 @@
 [package]
-name = "rref"
+name = "shared_heap"
 version = "0.1.0"
 edition = "2021"
 

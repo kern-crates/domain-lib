@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 ksync = { path = "../ksync" }
 corelib = { path = "../corelib", features = ["core_impl"] }
-rref = { path = "../rref" }
+shared_heap = { path = "../shared_heap" }
 buddy_system_allocator = "0.9.0"

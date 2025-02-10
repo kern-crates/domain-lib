@@ -5,7 +5,7 @@ use core::{
 
 use config::FRAME_SIZE;
 use memory_addr::{PhysAddr, VirtAddr};
-use rref::domain_id;
+use shared_heap::domain_id;
 
 #[derive(Debug)]
 pub struct FrameTracker {

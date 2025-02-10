@@ -3,8 +3,8 @@
 #![feature(specialization)]
 #![allow(incomplete_features)]
 #![no_std]
-mod rref;
-mod rvec;
+mod dbox;
+mod dvec;
 
 extern crate alloc;
 use core::{
@@ -12,8 +12,8 @@ use core::{
     any::{type_name_of_val, TypeId},
 };
 
-pub use rref::RRef;
-pub use rvec::RRefVec;
+pub use dbox::DBox;
+pub use dvec::DVec;
 use spin::Once;
 /// A trait for types that can be shared between domains.
 ///

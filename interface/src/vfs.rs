@@ -1,7 +1,7 @@
 use downcast_rs::{impl_downcast, DowncastSync};
 use gproxy::proxy;
 use pconst::{epoll::EpollEvent, io::SeekFrom};
-use rref::{RRef, RRefVec};
+use shared_heap::{DBox, DVec};
 use vfscore::utils::{VfsFileStat, VfsNodeType, VfsPollEvents};
 
 use super::AlienResult;
@@ -40,7 +40,7 @@ pub trait VfsDomain: Basic + DowncastSync {
     fn vfs_open(
         &self,
         root: InodeID,
-        path: &RRefVec<u8>,
+        path: &DVec<u8>,
         path_len: usize,
         mode: u32,
         open_flags: usize,
@@ -49,31 +49,31 @@ pub trait VfsDomain: Basic + DowncastSync {
     fn vfs_getattr(
         &self,
         inode: InodeID,
-        attr: RRef<VfsFileStat>,
-    ) -> AlienResult<RRef<VfsFileStat>>;
+        attr: DBox<VfsFileStat>,
+    ) -> AlienResult<DBox<VfsFileStat>>;
     fn vfs_read_at(
         &self,
         inode: InodeID,
         offset: u64,
-        buf: RRefVec<u8>,
-    ) -> AlienResult<(RRefVec<u8>, usize)>;
+        buf: DVec<u8>,
+    ) -> AlienResult<(DVec<u8>, usize)>;
 
-    fn vfs_read(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
+    fn vfs_read(&self, inode: InodeID, buf: DVec<u8>) -> AlienResult<(DVec<u8>, usize)>;
 
     fn vfs_write_at(
         &self,
         inode: InodeID,
         offset: u64,
-        buf: &RRefVec<u8>,
+        buf: &DVec<u8>,
         w: usize,
     ) -> AlienResult<usize>;
-    fn vfs_write(&self, inode: InodeID, buf: &RRefVec<u8>, w: usize) -> AlienResult<usize>;
+    fn vfs_write(&self, inode: InodeID, buf: &DVec<u8>, w: usize) -> AlienResult<usize>;
     fn vfs_flush(&self, inode: InodeID) -> AlienResult<()>;
     fn vfs_fsync(&self, inode: InodeID) -> AlienResult<()>;
     fn vfs_lseek(&self, inode: InodeID, seek: SeekFrom) -> AlienResult<u64>;
     fn vfs_inode_type(&self, inode: InodeID) -> AlienResult<VfsNodeType>;
-    fn vfs_readdir(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
-    fn vfs_get_path(&self, inode: InodeID, buf: RRefVec<u8>) -> AlienResult<(RRefVec<u8>, usize)>;
+    fn vfs_readdir(&self, inode: InodeID, buf: DVec<u8>) -> AlienResult<(DVec<u8>, usize)>;
+    fn vfs_get_path(&self, inode: InodeID, buf: DVec<u8>) -> AlienResult<(DVec<u8>, usize)>;
     /// truncate the file to len
     fn vfs_ftruncate(&self, inode: InodeID, len: u64) -> AlienResult<()>;
     fn vfs_update_atime(&self, inode: InodeID, atime_sec: u64, atime_nano: u64) -> AlienResult<()>;
@@ -90,7 +90,7 @@ pub trait VfsDomain: Basic + DowncastSync {
         inode: InodeID,
         op: u32,
         fd: usize,
-        event: RRef<EpollEvent>,
+        event: DBox<EpollEvent>,
     ) -> AlienResult<()>;
     fn do_eventfd(&self, init_val: u32, flags: u32) -> AlienResult<InodeID>;
 }
