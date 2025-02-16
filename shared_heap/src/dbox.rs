@@ -124,7 +124,7 @@ impl<T: RRefable> Drop for DBox<T> {
         if self.exist {
             return;
         }
-        log::warn!("<drop> for DBox {:#x}", self.value_pointer as usize);
+        log::debug!("<drop> for DBox {:#x}", self.value_pointer as usize);
         self.custom_drop();
     }
 }
@@ -134,7 +134,7 @@ impl<T: RRefable> CustomDrop for DBox<T> {
         if self.exist {
             return;
         }
-        log::warn!("<custom_drop> for DBox {:#x}", self.value_pointer as usize);
+        log::debug!("<custom_drop> for DBox {:#x}", self.value_pointer as usize);
         let value = unsafe { &mut *self.value_pointer };
         value.custom_drop();
         crate::share_heap_dealloc(self.value_pointer as *mut u8);

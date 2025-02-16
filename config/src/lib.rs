@@ -33,7 +33,7 @@ pub const STACK_SIZE_BITS: usize = 16;
 /// 可配置的启动cpu数量
 pub const CPU_NUM: usize = 4;
 
-const HEAP_SIZE: usize = 0x26_00000;
+const HEAP_SIZE: usize = 0x400_0000;
 pub const KERNEL_HEAP_SIZE: usize = HEAP_SIZE;
 
 pub const TRAMPOLINE: usize = usize::MAX - 2 * FRAME_SIZE + 1;
@@ -49,7 +49,7 @@ pub const MAX_FD_NUM: usize = 4096;
 /// app用户栈大小
 // pub const USER_STACK_SIZE: usize = 0x50_000;
 
-pub const USER_STACK_SIZE: usize = 0x4_000;
+pub const USER_STACK_SIZE: usize = 0x50_000;
 pub const ELF_BASE_RELOCATE: usize = 0x400_0000;
 
 pub const MAX_INPUT_EVENT_NUM: u32 = 1024;

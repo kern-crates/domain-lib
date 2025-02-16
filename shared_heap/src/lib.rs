@@ -43,7 +43,7 @@ pub trait CustomDrop {
 
 impl<T: RRefable> CustomDrop for T {
     default fn custom_drop(&mut self) {
-        log::warn!("default for {}", type_name_of_val(self));
+        log::debug!("default for {}", type_name_of_val(self));
     }
 }
 impl<T: RRefable> CustomDrop for Option<T> {

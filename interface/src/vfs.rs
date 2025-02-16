@@ -78,6 +78,24 @@ pub trait VfsDomain: Basic + DowncastSync {
     fn vfs_ftruncate(&self, inode: InodeID, len: u64) -> AlienResult<()>;
     fn vfs_update_atime(&self, inode: InodeID, atime_sec: u64, atime_nano: u64) -> AlienResult<()>;
     fn vfs_update_mtime(&self, inode: InodeID, mtime_sec: u64, mtime_nano: u64) -> AlienResult<()>;
+    fn vfs_rename(
+        &self,
+        old_inode: InodeID,
+        new_inode: InodeID,
+        old_path: &DVec<u8>,
+        old_len: usize,
+        new_path: &DVec<u8>,
+        new_len: usize,
+        fs_info: (InodeID, InodeID),
+        flag: u32,
+    ) -> AlienResult<()>;
+    fn vfs_unlink(
+        &self,
+        inode: InodeID,
+        path: &DVec<u8>,
+        path_len: usize,
+        flag: u32,
+    ) -> AlienResult<()>;
     fn do_fcntl(&self, inode: InodeID, cmd: usize, args: usize) -> AlienResult<isize>;
     fn do_pipe2(&self, flags: usize) -> AlienResult<(InodeID, InodeID)>;
     /// Create a socket and return the inode id

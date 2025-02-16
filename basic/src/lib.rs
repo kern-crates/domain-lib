@@ -16,7 +16,7 @@ pub mod vm;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::{boxed::Box, format, sync::Arc};
 
 use corelib::domain_info::DomainInfo;
 pub use corelib::{
@@ -46,4 +46,21 @@ pub fn catch_unwind<F: FnOnce() -> AlienResult<R>, R>(f: F) -> AlienResult<R> {
 
 pub fn unwind_from_panic() {
     unwinding::panic::begin_panic(Box::new(()));
+}
+
+use getrandom::Error;
+
+#[no_mangle]
+unsafe extern "Rust" fn __getrandom_v03_custom(dest: *mut u8, len: usize) -> Result<(), Error> {
+    let buf = core::slice::from_raw_parts_mut(dest, len);
+
+    let mut count = 0;
+    while count < len {
+        let now = format!("{}", time::read_timer());
+        let bytes = now.as_bytes();
+        let copy_len = core::cmp::min(len - count, bytes.len());
+        buf[count..count + copy_len].copy_from_slice(&bytes[..copy_len]);
+        count += copy_len;
+    }
+    Ok(())
 }

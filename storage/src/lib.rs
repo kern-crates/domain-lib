@@ -103,7 +103,7 @@ mod __private {
             .remove(key)
             .and_then(|value| unsafe {
                 let strong_count = Arc::strong_count(&value);
-                log::error!("remove_data: {:?}, ref count: {}", key, strong_count);
+                log::info!("remove_data: {:?}, ref count: {}", key, strong_count);
                 assert!(strong_count >= 2);
                 let value = value.downcast_unchecked::<T>();
                 let value = if strong_count != 2 {
@@ -117,7 +117,7 @@ mod __private {
                     value
                 };
                 let strong_count = Arc::strong_count(&value);
-                log::error!("remove_data: {:?}, ref count: {}", key, strong_count);
+                log::info!("remove_data: {:?}, ref count: {}", key, strong_count);
                 Some(value)
             });
         res

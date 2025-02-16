@@ -93,6 +93,7 @@ pub trait FsDomain: Basic + DowncastSync {
     fn kill_sb(&self) -> AlienResult<()>;
     fn fs_flag(&self) -> AlienResult<FileSystemFlags>;
     fn fs_name(&self, name: DVec<u8>) -> AlienResult<(DVec<u8>, usize)>;
+    fn fs_magic(&self) -> AlienResult<u128>;
 }
 
 impl_downcast!(sync FsDomain);

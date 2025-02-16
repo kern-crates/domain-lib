@@ -129,7 +129,7 @@ impl<T: RRefable + Copy + TypeIdentifiable> Drop for DVec<T> {
                 return;
             }
         }
-        log::warn!("<drop> for DVec");
+        log::debug!("<drop> for DVec");
     }
 }
 
@@ -138,7 +138,7 @@ impl<T: RRefable + Copy + TypeIdentifiable> CustomDrop for DVec<T> {
         if self.exist {
             return;
         }
-        log::warn!("<custom_drop> for DVec");
+        log::debug!("<custom_drop> for DVec");
         self.data.custom_drop();
     }
 }
