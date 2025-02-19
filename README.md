@@ -4,6 +4,7 @@ See [AlienOS](https://github.com/Godones/Alien/tree/isolation) to know how to us
 
 ## Introduction
 
+This library is used to create a domain in Isolation OS.
 
 
 ## Reference

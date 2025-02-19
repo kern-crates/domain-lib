@@ -53,7 +53,7 @@ mod __private {
 
     use spin::Once;
 
-    use crate::{DataStorageHeap, DomainDataStorage, StorageBuilder};
+    use crate::{ArcValueType, DataStorageHeap, DomainDataStorage, StorageBuilder};
 
     pub fn insert_data<T: Any + Send + Sync>(
         key: &str,
@@ -92,6 +92,24 @@ mod __private {
                 let arc = Arc::new_in(value, DataStorageHeap::build());
                 DATABASE.get().unwrap().insert(key, arc.clone());
                 arc
+            }
+        }
+    }
+    pub fn get_or_insert_with_data_in<
+        T: Any + Send + Sync,
+        F: FnOnce() -> Arc<T, DataStorageHeap>,
+    >(
+        key: &str,
+        f: F,
+    ) -> Arc<T, DataStorageHeap> {
+        let arc = get_data::<T>(&key);
+        match arc {
+            Some(arc) => arc,
+            None => {
+                let value = f();
+                // let arc = Arc::new_in(value, DataStorageHeap::build());
+                DATABASE.get().unwrap().insert(key, value.clone());
+                value
             }
         }
     }
