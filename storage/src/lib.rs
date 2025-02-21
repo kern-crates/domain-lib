@@ -4,11 +4,15 @@
 #![no_main]
 extern crate alloc;
 use alloc::{boxed::Box, sync::Arc};
-use core::{alloc::Allocator, any::Any};
+use core::{
+    alloc::{AllocError, Allocator, Layout},
+    any::Any,
+    ptr::NonNull,
+};
 
 use spin::Once;
 pub trait SendAllocator: Allocator + Send + Sync {}
-type ArcValueType = Arc<dyn Any + Send + Sync, DataStorageHeap>;
+type ArcValueType = Arc<dyn Any + Send + Sync, CustomStorge>;
 
 pub trait DomainDataStorage: Send + Sync {
     fn insert(&self, key: &str, value: ArcValueType) -> Option<ArcValueType>;
@@ -16,11 +20,35 @@ pub trait DomainDataStorage: Send + Sync {
     fn remove(&self, key: &str) -> Option<ArcValueType>;
 }
 
-pub trait StorageBuilder {
-    fn build() -> &'static dyn SendAllocator;
+
+/// A custom allocator which allocates memory from the custom heap
+///
+/// This allocator is used to allocate memory for the domain's state data.
+#[derive(Debug, Clone)]
+pub struct CustomStorge;
+
+unsafe impl Allocator for CustomStorge {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        log::debug!(
+            "[CustomStorge][{}] allocate memory with layout: {:?}",
+            shared_heap::domain_id(),
+            layout
+        );
+        let alloc = *DATA_ALLOCATOR.get().unwrap();
+        alloc.allocate(layout)
+    }
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        log::debug!(
+            "[CustomStorge][{}] deallocate memory with layout: {:?}",
+            shared_heap::domain_id(),
+            layout
+        );
+        let alloc = *DATA_ALLOCATOR.get().unwrap();
+        alloc.deallocate(ptr, layout)
+    }
 }
 
-pub type DataStorageHeap = &'static dyn SendAllocator;
+type DataStorageHeap = &'static dyn SendAllocator;
 static DATA_ALLOCATOR: Once<DataStorageHeap> = Once::new();
 
 pub fn init_data_allocator(allocator: &'static dyn SendAllocator) {
@@ -28,13 +56,7 @@ pub fn init_data_allocator(allocator: &'static dyn SendAllocator) {
     log::info!("init data allocator success");
 }
 
-impl StorageBuilder for DataStorageHeap {
-    fn build() -> &'static dyn SendAllocator {
-        *DATA_ALLOCATOR.get().unwrap()
-    }
-}
 
-#[allow(dead_code)]
 pub struct StorageArg {
     pub allocator: DataStorageHeap,
     pub storage: Box<dyn DomainDataStorage>,
@@ -53,68 +75,65 @@ mod __private {
 
     use spin::Once;
 
-    use crate::{ArcValueType, DataStorageHeap, DomainDataStorage, StorageBuilder};
+    use crate::{ArcValueType, CustomStorge, DataStorageHeap, DomainDataStorage};
 
-    pub fn insert_data<T: Any + Send + Sync>(
-        key: &str,
-        value: T,
-    ) -> Option<Arc<T, DataStorageHeap>> {
-        let arc = Arc::new_in(value, DataStorageHeap::build());
+    pub fn insert<T: Any + Send + Sync>(key: &str, value: T) -> Option<Arc<T, CustomStorge>> {
+        let arc = Arc::new_in(value, CustomStorge);
         let old = DATABASE.get().unwrap().insert(key, arc);
         let old_arc = match old {
-            Some(arc) => Some(unsafe { arc.downcast_unchecked::<T>() }),
+            Some(arc) => unsafe {
+                let v = arc.downcast_unchecked::<T>();
+                Some(v)
+            },
             None => None,
         };
         old_arc
     }
 
-    pub fn get_data<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, DataStorageHeap>> {
+    pub fn get<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, CustomStorge>> {
         let res = DATABASE
             .get()
             .unwrap()
             .get(key)
             .and_then(|arc_wrapper| unsafe {
-                let res = arc_wrapper.downcast_unchecked::<T>();
+                let res = arc_wrapper.downcast_unchecked();
                 Some(res)
             });
         res
     }
 
-    pub fn get_or_insert_with_data<T: Any + Send + Sync, F: FnOnce() -> T>(
+    pub fn get_or_insert<T: Any + Send + Sync, F: FnOnce() -> T>(
         key: &str,
         f: F,
-    ) -> Arc<T, DataStorageHeap> {
-        let arc = get_data::<T>(&key);
+    ) -> Arc<T, CustomStorge> {
+        let arc = get::<T>(&key);
         match arc {
             Some(arc) => arc,
             None => {
                 let value = f();
-                let arc = Arc::new_in(value, DataStorageHeap::build());
+                let arc = Arc::new_in(value, CustomStorge);
                 DATABASE.get().unwrap().insert(key, arc.clone());
                 arc
             }
         }
     }
-    pub fn get_or_insert_with_data_in<
-        T: Any + Send + Sync,
-        F: FnOnce() -> Arc<T, DataStorageHeap>,
-    >(
+
+    pub fn get_or_insert_in<T: Any + Send + Sync, F: FnOnce() -> Arc<T, CustomStorge>>(
         key: &str,
         f: F,
-    ) -> Arc<T, DataStorageHeap> {
-        let arc = get_data::<T>(&key);
+    ) -> Arc<T, CustomStorge> {
+        let arc = get::<T>(&key);
         match arc {
             Some(arc) => arc,
             None => {
                 let value = f();
-                // let arc = Arc::new_in(value, DataStorageHeap::build());
                 DATABASE.get().unwrap().insert(key, value.clone());
                 value
             }
         }
     }
 
-    pub fn remove_data<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, DataStorageHeap>> {
+    pub fn remove<T: Any + Send + Sync>(key: &str) -> Option<Arc<T, CustomStorge>> {
         let res = DATABASE
             .get()
             .unwrap()
@@ -128,9 +147,9 @@ mod __private {
                     // decrement strong count to 2
                     let raw = Arc::into_raw(value);
                     for _ in 0..(strong_count - 2) {
-                        Arc::decrement_strong_count_in(raw, DataStorageHeap::build());
+                        Arc::decrement_strong_count_in(raw, CustomStorge);
                     }
-                    Arc::from_raw_in(raw, DataStorageHeap::build())
+                    Arc::from_raw_in(raw, CustomStorge)
                 } else {
                     value
                 };
