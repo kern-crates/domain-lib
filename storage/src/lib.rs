@@ -20,7 +20,6 @@ pub trait DomainDataStorage: Send + Sync {
     fn remove(&self, key: &str) -> Option<ArcValueType>;
 }
 
-
 /// A custom allocator which allocates memory from the custom heap
 ///
 /// This allocator is used to allocate memory for the domain's state data.
@@ -55,7 +54,6 @@ pub fn init_data_allocator(allocator: &'static dyn SendAllocator) {
     DATA_ALLOCATOR.call_once(|| allocator);
     log::info!("init data allocator success");
 }
-
 
 pub struct StorageArg {
     pub allocator: DataStorageHeap,
