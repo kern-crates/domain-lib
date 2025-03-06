@@ -13,7 +13,8 @@ members = [
     "shared_heap",
     "storage",
     "task_meta",
-    "wrapper_macro"
+    "wrapper_macro",
+    "domain_manager"
 ]
 
 

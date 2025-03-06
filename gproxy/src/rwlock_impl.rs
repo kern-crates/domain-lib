@@ -185,7 +185,7 @@ fn impl_prox_ext_trait(
                 // stage5: recycle all resources
                 let real_domain = Box::into_inner(old_domain);
                 forget(real_domain);
-                free_domain_resource(old_id, FreeShared::NotFree(new_domain_id));
+                free_domain_resource(old_id, FreeShared::NotFree(new_domain_id),free_frames);
                 drop(tick);
                 // stage6: release all locks
                 *loader_guard = loader;

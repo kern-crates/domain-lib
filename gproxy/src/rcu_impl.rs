@@ -145,7 +145,7 @@ fn impl_prox_ext_trait(
                 let real_domain = Box::into_inner(old_domain);
                 forget(real_domain);
 
-                free_domain_resource(old_id, FreeShared::Free);
+                free_domain_resource(old_id, FreeShared::Free,free_frames);
                 drop(tick);
                 *loader_guard = loader;
 
